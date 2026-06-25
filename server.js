@@ -143,20 +143,25 @@ async function seedAdminUser() {
   const adminPass = process.env.ADMIN_PASS;
   if (!adminPass) return;
 
+  const hash = await bcrypt.hash(adminPass, 12);
   if (usePostgres()) {
-    const { rows } = await pool.query('SELECT id FROM users WHERE username=$1', [adminUser]);
-    if (rows.length) return;
-    const hash = await bcrypt.hash(adminPass, 12);
-    await pool.query('INSERT INTO users (username, password_hash, role) VALUES ($1,$2,$3)', [adminUser, hash, 'admin']);
-    console.log(`✅ Admin-Nutzer "${adminUser}" angelegt`);
+    await pool.query(`
+      INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'admin')
+      ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'admin'
+    `, [adminUser, hash]);
+    console.log(`✅ Admin-Nutzer "${adminUser}" bereit`);
   } else {
     const db = loadDB();
-    if (db.users && db.users.some(u => u.username === adminUser)) return;
     if (!db.users) db.users = [];
-    const hash = await bcrypt.hash(adminPass, 12);
-    db.users.push({ id: nextId(db, 'u'), username: adminUser, password_hash: hash, role: 'admin', created_at: now() });
+    const idx = db.users.findIndex(u => u.username === adminUser);
+    if (idx >= 0) {
+      db.users[idx].password_hash = hash;
+      db.users[idx].role = 'admin';
+    } else {
+      db.users.push({ id: nextId(db, 'u'), username: adminUser, password_hash: hash, role: 'admin', created_at: now() });
+    }
     saveDB(db);
-    console.log(`✅ Admin-Nutzer "${adminUser}" angelegt`);
+    console.log(`✅ Admin-Nutzer "${adminUser}" bereit`);
   }
 }
 
