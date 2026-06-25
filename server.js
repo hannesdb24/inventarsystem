@@ -142,6 +142,9 @@ async function initDB() {
     `);
     // Spalten nachrüsten falls DB schon existierte
     await pool.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL');
+    await pool.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS first_name TEXT');
+    await pool.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS last_name TEXT');
+    await pool.query(`UPDATE employees SET first_name = SPLIT_PART(name, ' ', 1), last_name = NULLIF(TRIM(SUBSTRING(name FROM POSITION(' ' IN name) + 1)), '') WHERE first_name IS NULL AND name IS NOT NULL`);
     await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL');
     await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS inventory_number TEXT UNIQUE');
     // Standorte einmalig seeden falls noch keine vorhanden
@@ -246,19 +249,20 @@ app.get('/api/employees', async (req, res) => {
 });
 
 app.post('/api/employees', requireAdmin, async (req, res) => {
-  const { name, department, email, location_id } = req.body;
-  if (!name) return res.status(400).json({ error: 'Name erforderlich' });
+  const { first_name, last_name, department, email, location_id } = req.body;
+  if (!first_name) return res.status(400).json({ error: 'Vorname erforderlich' });
+  const fullName = [first_name, last_name].filter(Boolean).join(' ');
   try {
     if (usePostgres()) {
       const { rows } = await pool.query(
-        'INSERT INTO employees (name, department, email, location_id) VALUES ($1,$2,$3,$4) RETURNING *',
-        [name, department || null, email || null, location_id || null]
+        'INSERT INTO employees (name, first_name, last_name, department, email, location_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+        [fullName, first_name, last_name || null, department || null, email || null, location_id || null]
       );
       const loc = location_id ? (await pool.query('SELECT name FROM locations WHERE id=$1', [location_id])).rows[0] : null;
       return res.status(201).json({ ...rows[0], device_count: 0, location_name: loc?.name || null });
     }
     const db = loadDB();
-    const employee = { id: nextId(db, 'e'), name, department: department || null, email: email || null, location_id: location_id || null, created_at: now() };
+    const employee = { id: nextId(db, 'e'), name: fullName, first_name, last_name: last_name || null, department: department || null, email: email || null, location_id: location_id || null, created_at: now() };
     db.employees.push(employee);
     saveDB(db);
     res.status(201).json({ ...employee, device_count: 0, location_name: db.locations.find(l => l.id === location_id)?.name || null });
@@ -267,12 +271,14 @@ app.post('/api/employees', requireAdmin, async (req, res) => {
 
 app.put('/api/employees/:id', requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id);
-  const { name, department, email, location_id } = req.body;
+  const { first_name, last_name, department, email, location_id } = req.body;
+  if (!first_name) return res.status(400).json({ error: 'Vorname erforderlich' });
+  const fullName = [first_name, last_name].filter(Boolean).join(' ');
   try {
     if (usePostgres()) {
       const { rows } = await pool.query(
-        'UPDATE employees SET name=$1, department=$2, email=$3, location_id=$4 WHERE id=$5 RETURNING *',
-        [name, department || null, email || null, location_id || null, id]
+        'UPDATE employees SET name=$1, first_name=$2, last_name=$3, department=$4, email=$5, location_id=$6 WHERE id=$7 RETURNING *',
+        [fullName, first_name, last_name || null, department || null, email || null, location_id || null, id]
       );
       if (!rows.length) return res.status(404).json({ error: 'Nicht gefunden' });
       const cnt = await pool.query('SELECT COUNT(*)::int AS c FROM assignments WHERE employee_id=$1 AND returned_at IS NULL', [id]);
@@ -282,7 +288,7 @@ app.put('/api/employees/:id', requireAdmin, async (req, res) => {
     const db = loadDB();
     const idx = db.employees.findIndex(e => e.id === id);
     if (idx === -1) return res.status(404).json({ error: 'Nicht gefunden' });
-    db.employees[idx] = { ...db.employees[idx], name, department: department || null, email: email || null, location_id: location_id || null };
+    db.employees[idx] = { ...db.employees[idx], name: fullName, first_name, last_name: last_name || null, department: department || null, email: email || null, location_id: location_id || null };
     saveDB(db);
     res.json({ ...db.employees[idx], device_count: db.assignments.filter(a => a.employee_id === id && !a.returned_at).length, location_name: db.locations.find(l => l.id === location_id)?.name || null });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -711,20 +717,24 @@ app.post('/api/employees/import', requireAdmin, async (req, res) => {
   const errors = [];
   if (usePostgres()) {
     for (const [i, r] of rows.entries()) {
-      const name = r.name || '';
-      if (!name) { skipped++; errors.push(`Zeile ${i + 2}: Name fehlt`); continue; }
+      const first_name = r.vorname || r.first_name || r.name || '';
+      const last_name = r.nachname || r.last_name || '';
+      if (!first_name) { skipped++; errors.push(`Zeile ${i + 2}: Vorname fehlt`); continue; }
+      const fullName = [first_name, last_name].filter(Boolean).join(' ');
       try {
-        await pool.query('INSERT INTO employees (name, department, email) VALUES ($1,$2,$3)',
-          [name, r.abteilung || r.department || null, r.e_mail || r.email || null]);
+        await pool.query('INSERT INTO employees (name, first_name, last_name, department, email) VALUES ($1,$2,$3,$4,$5)',
+          [fullName, first_name, last_name || null, r.abteilung || r.department || null, r.e_mail || r.email || null]);
         imported++;
-      } catch (e) { skipped++; errors.push(`Zeile ${i + 2} („${name}"): ${e.message}`); }
+      } catch (e) { skipped++; errors.push(`Zeile ${i + 2} („${fullName}"): ${e.message}`); }
     }
   } else {
     const db = loadDB();
     for (const [i, r] of rows.entries()) {
-      const name = r.name || '';
-      if (!name) { skipped++; errors.push(`Zeile ${i + 2}: Name fehlt`); continue; }
-      db.employees.push({ id: nextId(db, 'e'), name, department: r.abteilung || r.department || null, email: r.e_mail || r.email || null, created_at: now() });
+      const first_name = r.vorname || r.first_name || r.name || '';
+      const last_name = r.nachname || r.last_name || '';
+      if (!first_name) { skipped++; errors.push(`Zeile ${i + 2}: Vorname fehlt`); continue; }
+      const fullName = [first_name, last_name].filter(Boolean).join(' ');
+      db.employees.push({ id: nextId(db, 'e'), name: fullName, first_name, last_name: last_name || null, department: r.abteilung || r.department || null, email: r.e_mail || r.email || null, created_at: now() });
       imported++;
     }
     saveDB(db);

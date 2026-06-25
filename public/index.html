@@ -397,7 +397,7 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Name</th><th>Abteilung</th><th>E-Mail</th><th>Standort</th><th>Geräte</th><th></th></tr></thead>
+          <thead><tr><th>Vorname</th><th>Nachname</th><th>Abteilung</th><th>E-Mail</th><th>Standort</th><th>Geräte</th><th></th></tr></thead>
           <tbody id="employees-tbody"></tbody>
         </table>
       </div>
@@ -533,9 +533,15 @@
     </div>
     <div class="modal-body">
       <input type="hidden" id="employee-id" />
-      <div class="form-group">
-        <label>Name *</label>
-        <input id="employee-name" type="text" placeholder="Vor- und Nachname" />
+      <div class="form-row">
+        <div class="form-group">
+          <label>Vorname *</label>
+          <input id="employee-first-name" type="text" placeholder="z.B. Max" />
+        </div>
+        <div class="form-group">
+          <label>Nachname</label>
+          <input id="employee-last-name" type="text" placeholder="z.B. Mustermann" />
+        </div>
       </div>
       <div class="form-group">
         <label>Abteilung</label>
@@ -933,19 +939,21 @@
   function renderEmployees() {
     let employees = allEmployees;
     if (employeeSearch) employees = employees.filter(e =>
-      e.name.toLowerCase().includes(employeeSearch) ||
+      (e.first_name || e.name || '').toLowerCase().includes(employeeSearch) ||
+      (e.last_name || '').toLowerCase().includes(employeeSearch) ||
       (e.department || '').toLowerCase().includes(employeeSearch) ||
       (e.email || '').toLowerCase().includes(employeeSearch)
     );
 
     const tbody = document.getElementById('employees-tbody');
     if (!employees.length) {
-      tbody.innerHTML = '<tr><td colspan="6"><div class="empty">Keine Mitarbeiter gefunden</div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7"><div class="empty">Keine Mitarbeiter gefunden</div></td></tr>';
       return;
     }
     tbody.innerHTML = employees.map(e => `
       <tr>
-        <td><strong>${e.name}</strong></td>
+        <td><strong>${e.first_name || e.name || '–'}</strong></td>
+        <td>${e.last_name || '–'}</td>
         <td>${e.department || '–'}</td>
         <td>${e.email ? `<a href="mailto:${e.email}" style="color:var(--primary)">${e.email}</a>` : '–'}</td>
         <td>${e.location_name ? `<span style="color:var(--gray-600)">${e.location_name}</span>` : '<span style="color:var(--gray-400)">–</span>'}</td>
@@ -964,19 +972,21 @@
     const e = id ? allEmployees.find(x => x.id === id) : null;
     document.getElementById('employee-modal-title').textContent = e ? 'Mitarbeiter bearbeiten' : 'Mitarbeiter hinzufügen';
     document.getElementById('employee-id').value = e ? e.id : '';
-    document.getElementById('employee-name').value = e ? e.name : '';
+    document.getElementById('employee-first-name').value = e ? (e.first_name || '') : '';
+    document.getElementById('employee-last-name').value = e ? (e.last_name || '') : '';
     document.getElementById('employee-department').value = e ? (e.department || '') : '';
     document.getElementById('employee-email').value = e ? (e.email || '') : '';
     fillLocationSelect('employee-location-id', e?.location_id || null);
     document.getElementById('employee-modal').classList.remove('hidden');
-    setTimeout(() => document.getElementById('employee-name').focus(), 50);
+    setTimeout(() => document.getElementById('employee-first-name').focus(), 50);
   }
 
   async function saveEmployee() {
     const id = document.getElementById('employee-id').value;
     const locVal = document.getElementById('employee-location-id').value;
     const body = {
-      name: document.getElementById('employee-name').value.trim(),
+      first_name: document.getElementById('employee-first-name').value.trim(),
+      last_name: document.getElementById('employee-last-name').value.trim() || null,
       department: document.getElementById('employee-department').value.trim(),
       email: document.getElementById('employee-email').value.trim(),
       location_id: locVal ? parseInt(locVal) : null,
