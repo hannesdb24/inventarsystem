@@ -7,6 +7,13 @@ const bcrypt = require('bcryptjs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+console.log('[ENV]', {
+  PORT: process.env.PORT,
+  DATABASE_URL: process.env.DATABASE_URL ? `SET (${process.env.DATABASE_URL.length} chars)` : 'FEHLT',
+  ADMIN_USER: process.env.ADMIN_USER || 'FEHLT',
+  ADMIN_PASS: process.env.ADMIN_PASS ? 'SET' : 'FEHLT',
+});
+
 app.use(express.json());
 
 // ─── SESSION ──────────────────────────────────────────────────────────────────
