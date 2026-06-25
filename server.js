@@ -70,8 +70,10 @@ app.post('/api/auth/login', async (req, res) => {
       const db = loadDB();
       user = (db.users || []).find(u => u.username === username);
     }
+    console.log(`[login] user found: ${!!user}, pw_len: ${password.length}`);
     if (!user) return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
     const valid = await bcrypt.compare(password, user.password_hash);
+    console.log(`[login] bcrypt valid: ${valid}`);
     if (!valid) return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
     req.session.userId = user.id;
     req.session.username = user.username;
