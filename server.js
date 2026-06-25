@@ -6,13 +6,7 @@ const bcrypt = require('bcryptjs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-console.log('[ENV]', {
-  PORT: process.env.PORT,
-  DATABASE_URL: process.env.DATABASE_URL ? `SET (${process.env.DATABASE_URL.length} chars)` : 'FEHLT',
-  ADMIN_USER: process.env.ADMIN_USER || 'FEHLT',
-  ADMIN_PASS: process.env.ADMIN_PASS ? 'SET' : 'FEHLT',
-});
+console.log('[ENV keys]', Object.keys(process.env).sort().join(', '));
 
 app.use(express.json());
 
@@ -77,10 +71,8 @@ app.post('/api/auth/login', async (req, res) => {
       const db = loadDB();
       user = (db.users || []).find(u => u.username === username);
     }
-    console.log(`[login] user found: ${!!user}, pw_len: ${password.length}`);
     if (!user) return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
     const valid = await bcrypt.compare(password, user.password_hash);
-    console.log(`[login] bcrypt valid: ${valid}`);
     if (!valid) return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
     req.session.userId = user.id;
     req.session.username = user.username;
