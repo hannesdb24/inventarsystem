@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Inventarsystem</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -367,9 +368,9 @@
           </div>
           <input type="text" class="search-box" placeholder="Suchen…" oninput="searchDevices(this.value)" />
           <button class="btn btn-primary admin-only" onclick="openDeviceModal()">+ Gerät hinzufügen</button>
-          <button class="btn btn-ghost admin-only" onclick="document.getElementById('device-csv-input').click()">↑ CSV importieren</button>
+          <button class="btn btn-ghost admin-only" onclick="document.getElementById('device-csv-input').click()">↑ Import (xlsx/csv)</button>
           <button class="btn btn-ghost admin-only" onclick="downloadTemplate('devices')">⬇ Vorlage</button>
-          <input type="file" id="device-csv-input" accept=".csv" style="display:none" onchange="importCSV('devices', this)" />
+          <input type="file" id="device-csv-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="importCSV('devices', this)" />
         </div>
       </div>
       <div class="table-wrap">
@@ -389,9 +390,9 @@
         <div style="display:flex;gap:8px;align-items:center;">
           <input type="text" class="search-box" placeholder="Suchen…" oninput="searchEmployees(this.value)" />
           <button class="btn btn-primary admin-only" onclick="openEmployeeModal()">+ Mitarbeiter hinzufügen</button>
-          <button class="btn btn-ghost admin-only" onclick="document.getElementById('employee-csv-input').click()">↑ CSV importieren</button>
+          <button class="btn btn-ghost admin-only" onclick="document.getElementById('employee-csv-input').click()">↑ Import (xlsx/csv)</button>
           <button class="btn btn-ghost admin-only" onclick="downloadTemplate('employees')">⬇ Vorlage</button>
-          <input type="file" id="employee-csv-input" accept=".csv" style="display:none" onchange="importCSV('employees', this)" />
+          <input type="file" id="employee-csv-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="importCSV('employees', this)" />
         </div>
       </div>
       <div class="table-wrap">
@@ -1247,27 +1248,34 @@
   }
 
   // ─── CSV IMPORT ──────────────────────────────────────────────────────────────
-  const CSV_TEMPLATES = {
-    devices: 'Name,Typ,Seriennummer,Kaufdatum,Kaufpreis,Notizen\nThinkPad X1,Laptop,SN-001,2024-01-15,1299.00,\nDell U2722D,Monitor,SN-002,,429.00,',
-    employees: 'Name,Abteilung,E-Mail\nMax Mustermann,IT,max@beispiel.de\nErika Musterfrau,HR,erika@beispiel.de'
+  const XLSX_TEMPLATES = {
+    devices:   [['Name','Typ','Seriennummer','Kaufdatum','Kaufpreis','Notizen'],['ThinkPad X1','Laptop','SN-001','2024-01-15',1299.00,''],['Dell U2722D','Monitor','SN-002','',429.00,'']],
+    employees: [['Name','Abteilung','E-Mail'],['Max Mustermann','IT','max@beispiel.de'],['Erika Musterfrau','HR','erika@beispiel.de']],
   };
 
   function downloadTemplate(type) {
-    const csv = CSV_TEMPLATES[type];
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = type === 'devices' ? 'geraete-vorlage.csv' : 'mitarbeiter-vorlage.csv';
-    a.click();
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(XLSX_TEMPLATES[type]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Import');
+    XLSX.writeFile(wb, type === 'devices' ? 'geraete-vorlage.xlsx' : 'mitarbeiter-vorlage.xlsx');
   }
 
   async function importCSV(type, input) {
     const file = input.files[0];
     input.value = '';
     if (!file) return;
-    const text = await file.text();
+    let csv;
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'xlsx' || ext === 'xls') {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      csv = XLSX.utils.sheet_to_csv(ws);
+    } else {
+      csv = await file.text();
+    }
     try {
-      const result = await api('POST', '/' + type + '/import', { csv: text });
+      const result = await api('POST', '/' + type + '/import', { csv });
       const body = document.getElementById('import-modal-body');
       const errorHtml = result.errors.length
         ? `<div style="margin-top:12px"><strong>Fehler (${result.errors.length}):</strong><ul style="margin-top:6px;padding-left:20px">${result.errors.map(e => `<li style="font-size:13px;color:var(--danger)">${e}</li>`).join('')}</ul></div>`
