@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: inventarsystem
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: inventar-db
+          property: connectionString
+
+databases:
+  - name: inventar-db
+    databaseName: inventar
+    user: inventar
