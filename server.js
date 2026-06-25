@@ -6,7 +6,6 @@ const bcrypt = require('bcryptjs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-console.log('[ENV keys]', Object.keys(process.env).sort().join(', '));
 
 app.use(express.json());
 
@@ -142,7 +141,6 @@ async function initDB() {
 async function seedAdminUser() {
   const adminUser = process.env.ADMIN_USER || 'admin';
   const adminPass = process.env.ADMIN_PASS;
-  console.log(`[seed] ADMIN_PASS gesetzt: ${!!adminPass}, usePostgres: ${usePostgres()}`);
   if (!adminPass) return;
 
   const hash = await bcrypt.hash(adminPass, 12);
@@ -151,8 +149,6 @@ async function seedAdminUser() {
       INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'admin')
       ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'admin'
     `, [adminUser, hash]);
-    const check = await pool.query('SELECT id, username, role FROM users WHERE username=$1', [adminUser]);
-    console.log(`[seed] User in DB nach upsert:`, check.rows);
   } else {
     const db = loadDB();
     if (!db.users) db.users = [];
