@@ -1,11 +1,32 @@
 const express = require('express');
 const { Pool } = require('pg');
 const path = require('path');
+const session = require('express-session');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+// ─── SESSION ──────────────────────────────────────────────────────────────────
+
+const sessionStore = (() => {
+  if (process.env.DATABASE_URL) {
+    const pgSession = require('connect-pg-simple')(session);
+    return new pgSession({ conString: process.env.DATABASE_URL, tableName: 'sessions', createTableIfMissing: true });
+  }
+  return undefined; // MemoryStore (lokal ok)
+})();
+
+app.use(session({
+  store: sessionStore,
+  secret: process.env.SESSION_SECRET || 'dev-secret-change-in-prod',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false, maxAge: 8 * 60 * 60 * 1000 }, // 8h
+}));
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── DATENBANK ────────────────────────────────────────────────────────────────
@@ -23,11 +44,66 @@ function usePostgres() {
   return !!process.env.DATABASE_URL;
 }
 
+// ─── AUTH MIDDLEWARE ──────────────────────────────────────────────────────────
+
+function requireAuth(req, res, next) {
+  if (req.session && req.session.userId) return next();
+  res.status(401).json({ error: 'Nicht angemeldet' });
+}
+
+function requireAdmin(req, res, next) {
+  if (req.session && req.session.userRole === 'admin') return next();
+  res.status(403).json({ error: 'Keine Berechtigung' });
+}
+
+// ─── AUTH ROUTEN ──────────────────────────────────────────────────────────────
+
+app.post('/api/auth/login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Benutzername und Passwort erforderlich' });
+  try {
+    let user;
+    if (usePostgres()) {
+      const { rows } = await pool.query('SELECT * FROM users WHERE username=$1', [username]);
+      user = rows[0];
+    } else {
+      const db = loadDB();
+      user = (db.users || []).find(u => u.username === username);
+    }
+    if (!user) return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
+    req.session.userId = user.id;
+    req.session.username = user.username;
+    req.session.userRole = user.role;
+    res.json({ id: user.id, username: user.username, role: user.role });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  req.session.destroy(() => res.json({ success: true }));
+});
+
+app.get('/api/auth/me', (req, res) => {
+  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Nicht angemeldet' });
+  res.json({ id: req.session.userId, username: req.session.username, role: req.session.userRole });
+});
+
+// Alle folgenden /api/* Routen erfordern Authentifizierung
+app.use('/api', requireAuth);
+
 // ─── DATENBANK INITIALISIEREN ─────────────────────────────────────────────────
 
 async function initDB() {
   if (usePostgres()) {
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'user',
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
       CREATE TABLE IF NOT EXISTS employees (
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
@@ -59,17 +135,43 @@ async function initDB() {
   } else {
     console.log('ℹ️  Kein DATABASE_URL – nutze lokale JSON-Datei');
   }
+  await seedAdminUser();
+}
+
+async function seedAdminUser() {
+  const adminUser = process.env.ADMIN_USER || 'admin';
+  const adminPass = process.env.ADMIN_PASS;
+  if (!adminPass) return;
+
+  if (usePostgres()) {
+    const { rows } = await pool.query('SELECT id FROM users WHERE username=$1', [adminUser]);
+    if (rows.length) return;
+    const hash = await bcrypt.hash(adminPass, 12);
+    await pool.query('INSERT INTO users (username, password_hash, role) VALUES ($1,$2,$3)', [adminUser, hash, 'admin']);
+    console.log(`✅ Admin-Nutzer "${adminUser}" angelegt`);
+  } else {
+    const db = loadDB();
+    if (db.users && db.users.some(u => u.username === adminUser)) return;
+    if (!db.users) db.users = [];
+    const hash = await bcrypt.hash(adminPass, 12);
+    db.users.push({ id: nextId(db, 'u'), username: adminUser, password_hash: hash, role: 'admin', created_at: now() });
+    saveDB(db);
+    console.log(`✅ Admin-Nutzer "${adminUser}" angelegt`);
+  }
 }
 
 // ─── LOKALE DB (JSON-Fallback) ────────────────────────────────────────────────
 
 function loadDB() {
   if (!fs.existsSync(DB_FILE)) {
-    const empty = { employees: [], devices: [], assignments: [], _seq: { e: 0, d: 0, a: 0 } };
+    const empty = { users: [], employees: [], devices: [], assignments: [], _seq: { u: 0, e: 0, d: 0, a: 0 } };
     fs.writeFileSync(DB_FILE, JSON.stringify(empty, null, 2));
     return empty;
   }
-  return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  if (!db.users) db.users = [];
+  if (!db._seq.u) db._seq.u = 0;
+  return db;
 }
 
 function saveDB(db) {
@@ -104,7 +206,7 @@ app.get('/api/employees', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/employees', async (req, res) => {
+app.post('/api/employees', requireAdmin, async (req, res) => {
   const { name, department, email } = req.body;
   if (!name) return res.status(400).json({ error: 'Name erforderlich' });
   try {
@@ -123,7 +225,7 @@ app.post('/api/employees', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.put('/api/employees/:id', async (req, res) => {
+app.put('/api/employees/:id', requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id);
   const { name, department, email } = req.body;
   try {
@@ -145,7 +247,7 @@ app.put('/api/employees/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete('/api/employees/:id', async (req, res) => {
+app.delete('/api/employees/:id', requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id);
   try {
     if (usePostgres()) {
@@ -187,7 +289,7 @@ app.get('/api/devices', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/devices', async (req, res) => {
+app.post('/api/devices', requireAdmin, async (req, res) => {
   const { name, type, serial_number, purchase_date, purchase_price, notes } = req.body;
   if (!name) return res.status(400).json({ error: 'Name erforderlich' });
   try {
@@ -211,7 +313,7 @@ app.post('/api/devices', async (req, res) => {
   }
 });
 
-app.put('/api/devices/:id', async (req, res) => {
+app.put('/api/devices/:id', requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id);
   const { name, type, serial_number, purchase_date, purchase_price, notes, status } = req.body;
   try {
@@ -240,7 +342,7 @@ app.put('/api/devices/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/devices/:id', async (req, res) => {
+app.delete('/api/devices/:id', requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id);
   try {
     if (usePostgres()) {
@@ -363,6 +465,92 @@ app.get('/api/stats', async (req, res) => {
       total_employees: db.employees.length,
       total_assignments: db.assignments.filter(a => !a.returned_at).length,
     });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── BENUTZERVERWALTUNG ───────────────────────────────────────────────────────
+
+app.get('/api/users', requireAdmin, async (req, res) => {
+  try {
+    if (usePostgres()) {
+      const { rows } = await pool.query('SELECT id, username, role, created_at FROM users ORDER BY username');
+      return res.json(rows);
+    }
+    const db = loadDB();
+    res.json((db.users || []).map(({ password_hash, ...u }) => u));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/users', requireAdmin, async (req, res) => {
+  const { username, password, role } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Benutzername und Passwort erforderlich' });
+  if (!['admin', 'user'].includes(role)) return res.status(400).json({ error: 'Ungültige Rolle' });
+  try {
+    const hash = await bcrypt.hash(password, 12);
+    if (usePostgres()) {
+      const { rows } = await pool.query(
+        'INSERT INTO users (username, password_hash, role) VALUES ($1,$2,$3) RETURNING id, username, role, created_at',
+        [username, hash, role]
+      );
+      return res.status(201).json(rows[0]);
+    }
+    const db = loadDB();
+    if ((db.users || []).some(u => u.username === username)) return res.status(400).json({ error: 'Benutzername bereits vergeben' });
+    if (!db.users) db.users = [];
+    const user = { id: nextId(db, 'u'), username, password_hash: hash, role, created_at: now() };
+    db.users.push(user);
+    saveDB(db);
+    const { password_hash, ...safe } = user;
+    res.status(201).json(safe);
+  } catch (e) {
+    if (e.code === '23505') return res.status(400).json({ error: 'Benutzername bereits vergeben' });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/users/:id', requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id);
+  const { role, password } = req.body;
+  if (role && !['admin', 'user'].includes(role)) return res.status(400).json({ error: 'Ungültige Rolle' });
+  try {
+    if (usePostgres()) {
+      if (password) {
+        const hash = await bcrypt.hash(password, 12);
+        await pool.query('UPDATE users SET password_hash=$1 WHERE id=$2', [hash, id]);
+      }
+      if (role) {
+        await pool.query('UPDATE users SET role=$1 WHERE id=$2', [role, id]);
+      }
+      const { rows } = await pool.query('SELECT id, username, role, created_at FROM users WHERE id=$1', [id]);
+      if (!rows.length) return res.status(404).json({ error: 'Nicht gefunden' });
+      return res.json(rows[0]);
+    }
+    const db = loadDB();
+    const idx = (db.users || []).findIndex(u => u.id === id);
+    if (idx === -1) return res.status(404).json({ error: 'Nicht gefunden' });
+    if (role) db.users[idx].role = role;
+    if (password) db.users[idx].password_hash = await bcrypt.hash(password, 12);
+    saveDB(db);
+    const { password_hash, ...safe } = db.users[idx];
+    res.json(safe);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/users/:id', requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (id === req.session.userId) return res.status(400).json({ error: 'Eigenes Konto kann nicht gelöscht werden' });
+  try {
+    if (usePostgres()) {
+      const { rowCount } = await pool.query('DELETE FROM users WHERE id=$1', [id]);
+      if (!rowCount) return res.status(404).json({ error: 'Nicht gefunden' });
+      return res.json({ success: true });
+    }
+    const db = loadDB();
+    const idx = (db.users || []).findIndex(u => u.id === id);
+    if (idx === -1) return res.status(404).json({ error: 'Nicht gefunden' });
+    db.users.splice(idx, 1);
+    saveDB(db);
+    res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

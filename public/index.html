@@ -249,9 +249,65 @@
       background: var(--primary); margin-top: 5px; flex-shrink: 0;
     }
     .history-dot.returned { background: var(--gray-400); }
+
+    /* LOGIN OVERLAY */
+    #login-overlay {
+      position: fixed; inset: 0;
+      background: var(--gray-100);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9000;
+    }
+    #login-overlay.hidden { display: none; }
+    .login-box {
+      background: white;
+      border-radius: 12px;
+      padding: 40px;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.15);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .login-box .logo { justify-content: center; font-size: 22px; }
+    .login-title { font-size: 20px; font-weight: 600; text-align: center; color: var(--gray-800); margin-top: -4px; }
+    .login-error { color: var(--danger); font-size: 13px; text-align: center; display: none; }
+
+    /* HEADER USER INFO */
+    .header-spacer { flex: 1; }
+    .header-user { display: flex; align-items: center; gap: 10px; }
+    .header-username { font-size: 14px; color: var(--gray-600); font-weight: 500; }
+    .role-badge {
+      font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600;
+    }
+    .role-badge.admin { background: #ede9fe; color: #6d28d9; }
+    .role-badge.user { background: var(--gray-100); color: var(--gray-600); }
+
+    /* ROLE-BASED VISIBILITY */
+    body.role-user .admin-only { display: none !important; }
   </style>
 </head>
 <body>
+
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="logo">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      Inventarsystem
+    </div>
+    <p class="login-title">Anmelden</p>
+    <div class="form-group">
+      <label>Benutzername</label>
+      <input id="login-username" type="text" placeholder="Benutzername" autocomplete="username" />
+    </div>
+    <div class="form-group">
+      <label>Passwort</label>
+      <input id="login-password" type="password" placeholder="Passwort" autocomplete="current-password" />
+    </div>
+    <p id="login-error" class="login-error"></p>
+    <button class="btn btn-primary" style="padding:10px;font-size:15px" onclick="doLogin()">Anmelden</button>
+  </div>
+</div>
 
 <header>
   <div class="logo">
@@ -263,7 +319,14 @@
     <button onclick="showTab('devices')">Geräte</button>
     <button onclick="showTab('employees')">Mitarbeiter</button>
     <button onclick="showTab('history')">Verlauf</button>
+    <button class="admin-only" onclick="showTab('users')">Benutzer</button>
   </nav>
+  <div class="header-spacer"></div>
+  <div class="header-user">
+    <span id="header-username" class="header-username"></span>
+    <span id="header-role" class="role-badge"></span>
+    <button class="btn btn-sm btn-ghost" onclick="doLogout()">Abmelden</button>
+  </div>
 </header>
 
 <main>
@@ -302,7 +365,7 @@
             <span class="pill" onclick="filterDevices('defekt', this)">Defekt</span>
           </div>
           <input type="text" class="search-box" placeholder="Suchen…" oninput="searchDevices(this.value)" />
-          <button class="btn btn-primary" onclick="openDeviceModal()">+ Gerät hinzufügen</button>
+          <button class="btn btn-primary admin-only" onclick="openDeviceModal()">+ Gerät hinzufügen</button>
         </div>
       </div>
       <div class="table-wrap">
@@ -321,7 +384,7 @@
         <h2>Mitarbeiter</h2>
         <div style="display:flex;gap:8px;align-items:center;">
           <input type="text" class="search-box" placeholder="Suchen…" oninput="searchEmployees(this.value)" />
-          <button class="btn btn-primary" onclick="openEmployeeModal()">+ Mitarbeiter hinzufügen</button>
+          <button class="btn btn-primary admin-only" onclick="openEmployeeModal()">+ Mitarbeiter hinzufügen</button>
         </div>
       </div>
       <div class="table-wrap">
@@ -344,6 +407,22 @@
         <table>
           <thead><tr><th>Gerät</th><th>Mitarbeiter</th><th>Abteilung</th><th>Zugewiesen am</th><th>Zurückgegeben am</th><th>Status</th></tr></thead>
           <tbody id="history-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- BENUTZER -->
+  <div id="tab-users" class="tab">
+    <div class="card">
+      <div class="card-header">
+        <h2>Benutzerverwaltung</h2>
+        <button class="btn btn-primary" onclick="openUserModal()">+ Benutzer hinzufügen</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Benutzername</th><th>Rolle</th><th>Erstellt am</th><th></th></tr></thead>
+          <tbody id="users-tbody"></tbody>
         </table>
       </div>
     </div>
@@ -466,12 +545,45 @@
   </div>
 </div>
 
+<!-- Benutzer Modal -->
+<div class="modal-overlay hidden" id="user-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="user-modal-title">Benutzer hinzufügen</h3>
+      <button class="modal-close" onclick="closeModal('user-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="user-id" />
+      <div class="form-group" id="user-username-group">
+        <label>Benutzername *</label>
+        <input id="user-username" type="text" placeholder="Benutzername" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label id="user-password-label">Passwort *</label>
+        <input id="user-password" type="password" placeholder="Passwort" autocomplete="new-password" />
+      </div>
+      <div class="form-group">
+        <label>Rolle</label>
+        <select id="user-role">
+          <option value="user">Benutzer</option>
+          <option value="admin">Administrator</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('user-modal')">Abbrechen</button>
+      <button class="btn btn-primary" onclick="saveUser()">Speichern</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
   // ─── STATE ───────────────────────────────────────────────────────────────────
-  let allDevices = [], allEmployees = [], allAssignments = [];
+  let allDevices = [], allEmployees = [], allAssignments = [], allUsers = [];
   let deviceFilter = 'all', deviceSearch = '', employeeSearch = '', historySearch = '';
+  let currentUser = null;
 
   // ─── TABS ────────────────────────────────────────────────────────────────────
   function showTab(name) {
@@ -483,6 +595,7 @@
     if (name === 'devices') renderDevices();
     if (name === 'employees') renderEmployees();
     if (name === 'history') renderHistory();
+    if (name === 'users') loadUsers();
   }
 
   // ─── API ─────────────────────────────────────────────────────────────────────
@@ -491,8 +604,62 @@
     if (body) opts.body = JSON.stringify(body);
     const res = await fetch('/api' + path, opts);
     const data = await res.json();
+    if (res.status === 401 && path !== '/auth/login' && path !== '/auth/me') {
+      currentUser = null;
+      document.body.className = '';
+      document.getElementById('login-overlay').classList.remove('hidden');
+      throw new Error('Sitzung abgelaufen – bitte neu anmelden');
+    }
     if (!res.ok) throw new Error(data.error || 'Fehler');
     return data;
+  }
+
+  // ─── AUTH ────────────────────────────────────────────────────────────────────
+  async function checkAuth() {
+    try {
+      currentUser = await api('GET', '/auth/me');
+      document.getElementById('login-overlay').classList.add('hidden');
+      document.getElementById('header-username').textContent = currentUser.username;
+      const roleEl = document.getElementById('header-role');
+      roleEl.textContent = currentUser.role === 'admin' ? 'Admin' : 'Benutzer';
+      roleEl.className = 'role-badge ' + currentUser.role;
+      document.body.classList.add('role-' + currentUser.role);
+      return true;
+    } catch {
+      document.getElementById('login-overlay').classList.remove('hidden');
+      return false;
+    }
+  }
+
+  async function doLogin() {
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value;
+    const errEl = document.getElementById('login-error');
+    errEl.style.display = 'none';
+    if (!username || !password) {
+      errEl.textContent = 'Bitte alle Felder ausfüllen';
+      errEl.style.display = 'block';
+      return;
+    }
+    try {
+      await api('POST', '/auth/login', { username, password });
+      document.getElementById('login-password').value = '';
+      document.body.className = '';
+      await checkAuth();
+      await init();
+    } catch (e) {
+      errEl.textContent = e.message;
+      errEl.style.display = 'block';
+    }
+  }
+
+  async function doLogout() {
+    try { await api('POST', '/auth/logout'); } catch {}
+    currentUser = null;
+    document.body.className = '';
+    allDevices = []; allEmployees = []; allAssignments = []; allUsers = [];
+    document.getElementById('login-overlay').classList.remove('hidden');
+    document.getElementById('login-username').value = '';
   }
 
   // ─── TOAST ───────────────────────────────────────────────────────────────────
@@ -590,8 +757,8 @@
           <div style="display:flex;gap:4px;justify-content:flex-end">
             ${d.status === 'verfügbar' ? `<button class="btn btn-sm btn-success" onclick="openAssignModal(${d.id}, '${d.name.replace(/'/g,"\\'")}')">Zuweisen</button>` : ''}
             ${d.status === 'vergeben' ? `<button class="btn btn-sm btn-warning" onclick="returnDevice(${d.assignment_id})">Zurück</button>` : ''}
-            <button class="btn btn-sm btn-ghost" onclick="openDeviceModal(${d.id})">✏️</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteDevice(${d.id}, '${d.name.replace(/'/g,"\\'")}')">🗑️</button>
+            <button class="btn btn-sm btn-ghost admin-only" onclick="openDeviceModal(${d.id})">✏️</button>
+            <button class="btn btn-sm btn-danger admin-only" onclick="deleteDevice(${d.id}, '${d.name.replace(/'/g,"\\'")}')">🗑️</button>
           </div>
         </td>
       </tr>
@@ -673,8 +840,8 @@
         <td>${e.device_count > 0 ? `<span class="badge badge-blue">${e.device_count} Gerät${e.device_count > 1 ? 'e' : ''}</span>` : '<span style="color:var(--gray-400)">–</span>'}</td>
         <td>
           <div style="display:flex;gap:4px;justify-content:flex-end">
-            <button class="btn btn-sm btn-ghost" onclick="openEmployeeModal(${e.id})">✏️</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteEmployee(${e.id}, '${e.name.replace(/'/g,"\\'")}')">🗑️</button>
+            <button class="btn btn-sm btn-ghost admin-only" onclick="openEmployeeModal(${e.id})">✏️</button>
+            <button class="btn btn-sm btn-danger admin-only" onclick="deleteEmployee(${e.id}, '${e.name.replace(/'/g,"\\'")}')">🗑️</button>
           </div>
         </td>
       </tr>
@@ -790,6 +957,75 @@
     `).join('');
   }
 
+  // ─── BENUTZERVERWALTUNG ───────────────────────────────────────────────────────
+  async function loadUsers() {
+    allUsers = await api('GET', '/users');
+    renderUsers();
+  }
+
+  function renderUsers() {
+    const tbody = document.getElementById('users-tbody');
+    if (!allUsers.length) {
+      tbody.innerHTML = '<tr><td colspan="4"><div class="empty">Keine Benutzer gefunden</div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = allUsers.map(u => `
+      <tr>
+        <td><strong>${u.username}</strong>${u.id === currentUser.id ? ' <span style="font-size:11px;color:var(--gray-400)">(ich)</span>' : ''}</td>
+        <td><span class="role-badge ${u.role}">${u.role === 'admin' ? 'Administrator' : 'Benutzer'}</span></td>
+        <td>${formatDate(u.created_at)}</td>
+        <td>
+          <div style="display:flex;gap:4px;justify-content:flex-end">
+            <button class="btn btn-sm btn-ghost" onclick="openUserModal(${u.id})">✏️</button>
+            ${u.id !== currentUser.id ? `<button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id}, '${u.username.replace(/'/g,"\\'")}')">🗑️</button>` : ''}
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function openUserModal(id) {
+    const u = id ? allUsers.find(x => x.id === id) : null;
+    document.getElementById('user-modal-title').textContent = u ? 'Benutzer bearbeiten' : 'Benutzer hinzufügen';
+    document.getElementById('user-id').value = u ? u.id : '';
+    document.getElementById('user-username').value = u ? u.username : '';
+    document.getElementById('user-username-group').style.display = u ? 'none' : 'flex';
+    document.getElementById('user-password').value = '';
+    document.getElementById('user-password-label').textContent = u ? 'Neues Passwort (leer = unverändert)' : 'Passwort *';
+    document.getElementById('user-role').value = u ? u.role : 'user';
+    document.getElementById('user-modal').classList.remove('hidden');
+    if (!u) setTimeout(() => document.getElementById('user-username').focus(), 50);
+  }
+
+  async function saveUser() {
+    const id = document.getElementById('user-id').value;
+    const username = document.getElementById('user-username').value.trim();
+    const password = document.getElementById('user-password').value;
+    const role = document.getElementById('user-role').value;
+    if (!id && (!username || !password)) { toast('Benutzername und Passwort erforderlich', 'error'); return; }
+    try {
+      if (id) {
+        const body = { role };
+        if (password) body.password = password;
+        await api('PUT', '/users/' + id, body);
+      } else {
+        await api('POST', '/users', { username, password, role });
+      }
+      closeModal('user-modal');
+      await loadUsers();
+      toast(id ? 'Benutzer aktualisiert' : 'Benutzer hinzugefügt');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  async function deleteUser(id, username) {
+    if (!confirm(`Benutzer "${username}" wirklich löschen?`)) return;
+    try {
+      await api('DELETE', '/users/' + id);
+      await loadUsers();
+      toast('Benutzer gelöscht');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
   // ─── MODAL ───────────────────────────────────────────────────────────────────
   function closeModal(id) {
     document.getElementById(id).classList.add('hidden');
@@ -805,9 +1041,18 @@
 
   // ─── INIT ────────────────────────────────────────────────────────────────────
   async function init() {
+    const authed = await checkAuth();
+    if (!authed) return;
     await Promise.all([loadDevices(), loadEmployees()]);
     loadDashboard();
   }
+
+  document.getElementById('login-password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+  document.getElementById('login-username').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('login-password').focus();
+  });
 
   init();
 </script>
