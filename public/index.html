@@ -753,7 +753,7 @@
     try { await api('POST', '/auth/logout'); } catch {}
     currentUser = null;
     document.body.className = '';
-    allDevices = []; allEmployees = []; allAssignments = []; allUsers = [];
+    allDevices = []; allEmployees = []; allAssignments = []; allUsers = []; allLocations = [];
     document.getElementById('login-overlay').classList.remove('hidden');
     document.getElementById('login-username').value = '';
   }
@@ -1293,7 +1293,7 @@
   async function init() {
     const authed = await checkAuth();
     if (!authed) return;
-    await Promise.all([loadDevices(), loadEmployees(), loadLocations()]);
+    await Promise.allSettled([loadDevices(), loadEmployees(), loadLocations()]);
     loadDashboard();
   }
 
