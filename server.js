@@ -443,6 +443,105 @@ app.put('/api/assignments/:id/return', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── CSV IMPORT ───────────────────────────────────────────────────────────────
+
+function parseCSV(text) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
+  if (!lines.length) return [];
+  const first = lines[0].replace(/^﻿/, '');
+  const delim = first.includes(';') && !first.includes(',') ? ';' : ',';
+  const parseRow = line => {
+    const fields = []; let field = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { if (inQ && line[i + 1] === '"') { field += '"'; i++; } else inQ = !inQ; }
+      else if (c === delim && !inQ) { fields.push(field.trim()); field = ''; }
+      else field += c;
+    }
+    fields.push(field.trim());
+    return fields;
+  };
+  const headers = parseRow(first).map(h => h.toLowerCase().replace(/[^a-z0-9]/g, '_'));
+  return lines.slice(1).map(line => {
+    const vals = parseRow(line);
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = vals[i] !== undefined ? vals[i] : ''; });
+    return obj;
+  });
+}
+
+app.post('/api/devices/import', requireAdmin, async (req, res) => {
+  const { csv } = req.body;
+  if (!csv) return res.status(400).json({ error: 'Keine CSV-Daten' });
+  const rows = parseCSV(csv);
+  let imported = 0, skipped = 0;
+  const errors = [];
+  if (usePostgres()) {
+    for (const [i, r] of rows.entries()) {
+      const name = r.name || '';
+      if (!name) { skipped++; errors.push(`Zeile ${i + 2}: Name fehlt`); continue; }
+      const type = r.typ || r.type || null;
+      const serial = r.seriennummer || r.serial_number || null;
+      const pd = r.kaufdatum || r.purchase_date || null;
+      const pp = r.kaufpreis || r.purchase_price || null;
+      const notes = r.notizen || r.notes || null;
+      try {
+        await pool.query(
+          'INSERT INTO devices (name, type, serial_number, purchase_date, purchase_price, notes) VALUES ($1,$2,$3,$4,$5,$6)',
+          [name, type || null, serial || null, pd || null, pp ? parseFloat(pp) : null, notes || null]
+        );
+        imported++;
+      } catch (e) {
+        skipped++;
+        errors.push(`Zeile ${i + 2} („${name}"): ${e.code === '23505' ? 'Seriennummer bereits vorhanden' : e.message}`);
+      }
+    }
+  } else {
+    const db = loadDB();
+    for (const [i, r] of rows.entries()) {
+      const name = r.name || '';
+      if (!name) { skipped++; errors.push(`Zeile ${i + 2}: Name fehlt`); continue; }
+      const serial = r.seriennummer || r.serial_number || null;
+      if (serial && db.devices.some(d => d.serial_number === serial)) {
+        skipped++; errors.push(`Zeile ${i + 2} („${name}"): Seriennummer bereits vorhanden`); continue;
+      }
+      db.devices.push({ id: nextId(db, 'd'), name, type: r.typ || r.type || null, serial_number: serial, purchase_date: r.kaufdatum || r.purchase_date || null, purchase_price: (r.kaufpreis || r.purchase_price) ? parseFloat(r.kaufpreis || r.purchase_price) : null, notes: r.notizen || r.notes || null, status: 'verfügbar', created_at: now() });
+      imported++;
+    }
+    saveDB(db);
+  }
+  res.json({ imported, skipped, errors });
+});
+
+app.post('/api/employees/import', requireAdmin, async (req, res) => {
+  const { csv } = req.body;
+  if (!csv) return res.status(400).json({ error: 'Keine CSV-Daten' });
+  const rows = parseCSV(csv);
+  let imported = 0, skipped = 0;
+  const errors = [];
+  if (usePostgres()) {
+    for (const [i, r] of rows.entries()) {
+      const name = r.name || '';
+      if (!name) { skipped++; errors.push(`Zeile ${i + 2}: Name fehlt`); continue; }
+      try {
+        await pool.query('INSERT INTO employees (name, department, email) VALUES ($1,$2,$3)',
+          [name, r.abteilung || r.department || null, r.e_mail || r.email || null]);
+        imported++;
+      } catch (e) { skipped++; errors.push(`Zeile ${i + 2} („${name}"): ${e.message}`); }
+    }
+  } else {
+    const db = loadDB();
+    for (const [i, r] of rows.entries()) {
+      const name = r.name || '';
+      if (!name) { skipped++; errors.push(`Zeile ${i + 2}: Name fehlt`); continue; }
+      db.employees.push({ id: nextId(db, 'e'), name, department: r.abteilung || r.department || null, email: r.e_mail || r.email || null, created_at: now() });
+      imported++;
+    }
+    saveDB(db);
+  }
+  res.json({ imported, skipped, errors });
+});
+
 // ─── STATS ────────────────────────────────────────────────────────────────────
 
 app.get('/api/stats', async (req, res) => {

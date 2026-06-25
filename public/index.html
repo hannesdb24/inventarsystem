@@ -366,6 +366,9 @@
           </div>
           <input type="text" class="search-box" placeholder="Suchen…" oninput="searchDevices(this.value)" />
           <button class="btn btn-primary admin-only" onclick="openDeviceModal()">+ Gerät hinzufügen</button>
+          <button class="btn btn-ghost admin-only" onclick="document.getElementById('device-csv-input').click()">↑ CSV importieren</button>
+          <button class="btn btn-ghost admin-only" onclick="downloadTemplate('devices')">⬇ Vorlage</button>
+          <input type="file" id="device-csv-input" accept=".csv" style="display:none" onchange="importCSV('devices', this)" />
         </div>
       </div>
       <div class="table-wrap">
@@ -385,6 +388,9 @@
         <div style="display:flex;gap:8px;align-items:center;">
           <input type="text" class="search-box" placeholder="Suchen…" oninput="searchEmployees(this.value)" />
           <button class="btn btn-primary admin-only" onclick="openEmployeeModal()">+ Mitarbeiter hinzufügen</button>
+          <button class="btn btn-ghost admin-only" onclick="document.getElementById('employee-csv-input').click()">↑ CSV importieren</button>
+          <button class="btn btn-ghost admin-only" onclick="downloadTemplate('employees')">⬇ Vorlage</button>
+          <input type="file" id="employee-csv-input" accept=".csv" style="display:none" onchange="importCSV('employees', this)" />
         </div>
       </div>
       <div class="table-wrap">
@@ -578,6 +584,20 @@
 </div>
 
 <div id="toast"></div>
+
+<!-- IMPORT RESULT MODAL -->
+<div class="modal-overlay hidden" id="import-modal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3>Import-Ergebnis</h3>
+      <button class="modal-close" onclick="closeModal('import-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="import-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('import-modal')">Schließen</button>
+    </div>
+  </div>
+</div>
 
 <script>
   // ─── STATE ───────────────────────────────────────────────────────────────────
@@ -1038,6 +1058,49 @@
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m => m.classList.add('hidden'));
   });
+
+  // ─── CSV IMPORT ──────────────────────────────────────────────────────────────
+  const CSV_TEMPLATES = {
+    devices: 'Name,Typ,Seriennummer,Kaufdatum,Kaufpreis,Notizen\nThinkPad X1,Laptop,SN-001,2024-01-15,1299.00,\nDell U2722D,Monitor,SN-002,,429.00,',
+    employees: 'Name,Abteilung,E-Mail\nMax Mustermann,IT,max@beispiel.de\nErika Musterfrau,HR,erika@beispiel.de'
+  };
+
+  function downloadTemplate(type) {
+    const csv = CSV_TEMPLATES[type];
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = type === 'devices' ? 'geraete-vorlage.csv' : 'mitarbeiter-vorlage.csv';
+    a.click();
+  }
+
+  async function importCSV(type, input) {
+    const file = input.files[0];
+    input.value = '';
+    if (!file) return;
+    const text = await file.text();
+    try {
+      const result = await api('POST', '/' + type + '/import', { csv: text });
+      const body = document.getElementById('import-modal-body');
+      const errorHtml = result.errors.length
+        ? `<div style="margin-top:12px"><strong>Fehler (${result.errors.length}):</strong><ul style="margin-top:6px;padding-left:20px">${result.errors.map(e => `<li style="font-size:13px;color:var(--danger)">${e}</li>`).join('')}</ul></div>`
+        : '';
+      body.innerHTML = `
+        <div style="display:flex;gap:16px;margin-bottom:4px">
+          <div style="flex:1;padding:16px;background:#f0fdf4;border-radius:8px;text-align:center">
+            <div style="font-size:28px;font-weight:700;color:var(--success)">${result.imported}</div>
+            <div style="font-size:13px;color:var(--gray-600)">Importiert</div>
+          </div>
+          <div style="flex:1;padding:16px;background:#fef9c3;border-radius:8px;text-align:center">
+            <div style="font-size:28px;font-weight:700;color:var(--warning)">${result.skipped}</div>
+            <div style="font-size:13px;color:var(--gray-600)">Übersprungen</div>
+          </div>
+        </div>${errorHtml}`;
+      document.getElementById('import-modal').classList.remove('hidden');
+      if (type === 'devices') await loadDevices();
+      else await loadEmployees();
+    } catch (e) { toast(e.message, 'error'); }
+  }
 
   // ─── INIT ────────────────────────────────────────────────────────────────────
   async function init() {
