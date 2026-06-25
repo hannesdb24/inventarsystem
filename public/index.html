@@ -375,7 +375,7 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Name</th><th>Typ</th><th>Seriennummer</th><th>Status</th><th>Zugewiesen an</th><th>Standort</th><th>Kaufdatum</th><th>Preis</th><th></th></tr></thead>
+          <thead><tr><th>Inv.-Nr.</th><th>Name</th><th>Typ</th><th>Seriennummer</th><th>Status</th><th>Zugewiesen an</th><th>Standort</th><th>Kaufdatum</th><th>Preis</th><th></th></tr></thead>
           <tbody id="devices-tbody"></tbody>
         </table>
       </div>
@@ -478,9 +478,15 @@
           <input id="device-type" type="text" placeholder="z.B. Laptop" />
         </div>
       </div>
-      <div class="form-group">
-        <label>Seriennummer</label>
-        <input id="device-serial" type="text" placeholder="z.B. C02XY1234ABC" />
+      <div class="form-row">
+        <div class="form-group">
+          <label>Inventarnummer</label>
+          <input id="device-inventory-number" type="text" placeholder="wird automatisch vergeben" />
+        </div>
+        <div class="form-group">
+          <label>Seriennummer</label>
+          <input id="device-serial" type="text" placeholder="z.B. C02XY1234ABC" />
+        </div>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -831,6 +837,7 @@
     if (deviceFilter !== 'all') devices = devices.filter(d => d.status === deviceFilter);
     if (deviceSearch) devices = devices.filter(d =>
       d.name.toLowerCase().includes(deviceSearch) ||
+      (d.inventory_number || '').toLowerCase().includes(deviceSearch) ||
       (d.serial_number || '').toLowerCase().includes(deviceSearch) ||
       (d.type || '').toLowerCase().includes(deviceSearch) ||
       (d.assigned_to_name || '').toLowerCase().includes(deviceSearch)
@@ -838,11 +845,12 @@
 
     const tbody = document.getElementById('devices-tbody');
     if (!devices.length) {
-      tbody.innerHTML = '<tr><td colspan="9"><div class="empty">Keine Geräte gefunden</div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10"><div class="empty">Keine Geräte gefunden</div></td></tr>';
       return;
     }
     tbody.innerHTML = devices.map(d => `
       <tr>
+        <td><code style="font-size:12px;color:var(--primary-600);font-weight:600">${d.inventory_number || '–'}</code></td>
         <td><strong>${d.name}</strong></td>
         <td>${d.type || '–'}</td>
         <td><code style="font-size:12px;color:var(--gray-600)">${d.serial_number || '–'}</code></td>
@@ -869,6 +877,7 @@
     document.getElementById('device-id').value = d ? d.id : '';
     document.getElementById('device-name').value = d ? d.name : '';
     document.getElementById('device-type').value = d ? (d.type || '') : '';
+    document.getElementById('device-inventory-number').value = d ? (d.inventory_number || '') : '';
     document.getElementById('device-serial').value = d ? (d.serial_number || '') : '';
     document.getElementById('device-purchase-date').value = d ? (d.purchase_date || '') : '';
     document.getElementById('device-price').value = d ? (d.purchase_price || '') : '';
@@ -886,6 +895,7 @@
     const body = {
       name: document.getElementById('device-name').value.trim(),
       type: document.getElementById('device-type').value.trim(),
+      inventory_number: document.getElementById('device-inventory-number').value.trim() || null,
       serial_number: document.getElementById('device-serial').value.trim(),
       purchase_date: document.getElementById('device-purchase-date').value,
       purchase_price: document.getElementById('device-price').value || null,
