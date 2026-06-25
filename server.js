@@ -141,10 +141,26 @@ async function initDB() {
       );
     `);
     // Spalten nachrüsten falls DB schon existierte
-    await pool.query(`
-      ALTER TABLE employees ADD COLUMN IF NOT EXISTS location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL;
-      ALTER TABLE devices ADD COLUMN IF NOT EXISTS location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL;
-    `);
+    await pool.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL');
+    await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL');
+    // Standorte einmalig seeden falls noch keine vorhanden
+    const { rows: locCount } = await pool.query('SELECT COUNT(*)::int AS c FROM locations');
+    if (locCount[0].c === 0) {
+      const locs = [
+        ['Wriezen',                'Mahlerstraße 23a, 16269 Wriezen',               'Tel: +49 33456 1516 0'],
+        ['Meßkirch',               'Unterm Ablaß 4, 88605 Meßkirch',                'Tel: +49 7575 927829 0'],
+        ['Straufhain / Eishausen', 'Straße in der Neustadt 107, 98646 Straufhain',  'Tel: +49 3685 40914 0'],
+        ['Gera',                   'Naulitzer Straße 35b, 07546 Gera',              'Tel: +49 365 7302366'],
+        ['Laußnitz',               'Dresdner Straße 30, 01936 Laußnitz',            'Tel: +49 351 889613 0'],
+        ['Pocking',                'Gewerbering 4a, 94060 Pocking',                 'Tel: +49 8531 97834 0'],
+        ['Perleberg',              'Hamburger Chaussee 5, 19348 Perleberg',         'Tel: +49 3876 3000 290'],
+        ['Egeln',                  'Feld am Bruche 18, 39435 Egeln',                'Tel: +49 39268 9869 0'],
+      ];
+      for (const [name, address, notes] of locs) {
+        await pool.query('INSERT INTO locations (name, address, notes) VALUES ($1,$2,$3)', [name, address, notes]);
+      }
+      console.log('✅ 8 Standorte importiert');
+    }
     console.log('✅ PostgreSQL verbunden');
   } else {
     console.log('ℹ️  Kein DATABASE_URL – nutze lokale JSON-Datei');
