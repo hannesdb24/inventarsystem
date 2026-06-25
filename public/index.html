@@ -318,6 +318,7 @@
     <button class="active" onclick="showTab('dashboard')">Dashboard</button>
     <button onclick="showTab('devices')">Geräte</button>
     <button onclick="showTab('employees')">Mitarbeiter</button>
+    <button onclick="showTab('locations')">Standorte</button>
     <button onclick="showTab('history')">Verlauf</button>
     <button class="admin-only" onclick="showTab('users')">Benutzer</button>
   </nav>
@@ -373,7 +374,7 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Name</th><th>Typ</th><th>Seriennummer</th><th>Status</th><th>Zugewiesen an</th><th>Kaufdatum</th><th>Preis</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Typ</th><th>Seriennummer</th><th>Status</th><th>Zugewiesen an</th><th>Standort</th><th>Kaufdatum</th><th>Preis</th><th></th></tr></thead>
           <tbody id="devices-tbody"></tbody>
         </table>
       </div>
@@ -395,8 +396,27 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Name</th><th>Abteilung</th><th>E-Mail</th><th>Geräte</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Abteilung</th><th>E-Mail</th><th>Standort</th><th>Geräte</th><th></th></tr></thead>
           <tbody id="employees-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- STANDORTE -->
+  <div id="tab-locations" class="tab">
+    <div class="card">
+      <div class="card-header">
+        <h2>Standorte</h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" class="search-box" placeholder="Suchen…" oninput="searchLocations(this.value)" />
+          <button class="btn btn-primary admin-only" onclick="openLocationModal()">+ Standort hinzufügen</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Adresse</th><th>Mitarbeiter</th><th>Geräte</th><th></th></tr></thead>
+          <tbody id="locations-tbody"></tbody>
         </table>
       </div>
     </div>
@@ -480,6 +500,12 @@
         </select>
       </div>
       <div class="form-group">
+        <label>Standort</label>
+        <select id="device-location-id">
+          <option value="">— Kein Standort —</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label>Notizen</label>
         <textarea id="device-notes" placeholder="Optionale Anmerkungen…"></textarea>
       </div>
@@ -511,6 +537,12 @@
       <div class="form-group">
         <label>E-Mail</label>
         <input id="employee-email" type="email" placeholder="name@firma.de" />
+      </div>
+      <div class="form-group">
+        <label>Standort</label>
+        <select id="employee-location-id">
+          <option value="">— Kein Standort —</option>
+        </select>
       </div>
     </div>
     <div class="modal-footer">
@@ -585,6 +617,49 @@
 
 <div id="toast"></div>
 
+<!-- STANDORT MODAL -->
+<div class="modal-overlay hidden" id="location-modal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3 id="location-modal-title">Standort hinzufügen</h3>
+      <button class="modal-close" onclick="closeModal('location-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="location-id" />
+      <div class="form-group">
+        <label>Name *</label>
+        <input id="location-name" type="text" placeholder="z.B. Hauptsitz Hamburg" />
+      </div>
+      <div class="form-group">
+        <label>Adresse</label>
+        <input id="location-address" type="text" placeholder="z.B. Musterstraße 1, 20095 Hamburg" />
+      </div>
+      <div class="form-group">
+        <label>Notizen</label>
+        <textarea id="location-notes" placeholder="Optionale Anmerkungen…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('location-modal')">Abbrechen</button>
+      <button class="btn btn-primary" onclick="saveLocation()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- STANDORT DETAIL MODAL -->
+<div class="modal-overlay hidden" id="location-detail-modal">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <h3 id="location-detail-title">Standort</h3>
+      <button class="modal-close" onclick="closeModal('location-detail-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="location-detail-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('location-detail-modal')">Schließen</button>
+    </div>
+  </div>
+</div>
+
 <!-- IMPORT RESULT MODAL -->
 <div class="modal-overlay hidden" id="import-modal">
   <div class="modal" style="max-width:480px">
@@ -601,8 +676,8 @@
 
 <script>
   // ─── STATE ───────────────────────────────────────────────────────────────────
-  let allDevices = [], allEmployees = [], allAssignments = [], allUsers = [];
-  let deviceFilter = 'all', deviceSearch = '', employeeSearch = '', historySearch = '';
+  let allDevices = [], allEmployees = [], allAssignments = [], allUsers = [], allLocations = [];
+  let deviceFilter = 'all', deviceSearch = '', employeeSearch = '', historySearch = '', locationSearch = '';
   let currentUser = null;
 
   // ─── TABS ────────────────────────────────────────────────────────────────────
@@ -614,6 +689,7 @@
     if (name === 'dashboard') loadDashboard();
     if (name === 'devices') renderDevices();
     if (name === 'employees') renderEmployees();
+    if (name === 'locations') loadLocations();
     if (name === 'history') renderHistory();
     if (name === 'users') loadUsers();
   }
@@ -761,7 +837,7 @@
 
     const tbody = document.getElementById('devices-tbody');
     if (!devices.length) {
-      tbody.innerHTML = '<tr><td colspan="8"><div class="empty">Keine Geräte gefunden</div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9"><div class="empty">Keine Geräte gefunden</div></td></tr>';
       return;
     }
     tbody.innerHTML = devices.map(d => `
@@ -771,6 +847,7 @@
         <td><code style="font-size:12px;color:var(--gray-600)">${d.serial_number || '–'}</code></td>
         <td>${statusBadge(d.status)}</td>
         <td>${d.assigned_to_name ? `<span style="color:var(--gray-700)">${d.assigned_to_name}</span>` : '<span style="color:var(--gray-400)">–</span>'}</td>
+        <td>${d.location_name ? `<span style="color:var(--gray-600)">${d.location_name}</span>` : '<span style="color:var(--gray-400)">–</span>'}</td>
         <td>${formatDate(d.purchase_date)}</td>
         <td>${formatPrice(d.purchase_price)}</td>
         <td>
@@ -797,12 +874,14 @@
     document.getElementById('device-notes').value = d ? (d.notes || '') : '';
     document.getElementById('device-status').value = d ? d.status : 'verfügbar';
     document.getElementById('device-status-group').style.display = d ? 'flex' : 'none';
+    fillLocationSelect('device-location-id', d?.location_id || null);
     document.getElementById('device-modal').classList.remove('hidden');
     setTimeout(() => document.getElementById('device-name').focus(), 50);
   }
 
   async function saveDevice() {
     const id = document.getElementById('device-id').value;
+    const locVal = document.getElementById('device-location-id').value;
     const body = {
       name: document.getElementById('device-name').value.trim(),
       type: document.getElementById('device-type').value.trim(),
@@ -811,6 +890,7 @@
       purchase_price: document.getElementById('device-price').value || null,
       notes: document.getElementById('device-notes').value.trim(),
       status: document.getElementById('device-status').value,
+      location_id: locVal ? parseInt(locVal) : null,
     };
     if (!body.name) { toast('Name erforderlich', 'error'); return; }
     try {
@@ -849,7 +929,7 @@
 
     const tbody = document.getElementById('employees-tbody');
     if (!employees.length) {
-      tbody.innerHTML = '<tr><td colspan="5"><div class="empty">Keine Mitarbeiter gefunden</div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty">Keine Mitarbeiter gefunden</div></td></tr>';
       return;
     }
     tbody.innerHTML = employees.map(e => `
@@ -857,6 +937,7 @@
         <td><strong>${e.name}</strong></td>
         <td>${e.department || '–'}</td>
         <td>${e.email ? `<a href="mailto:${e.email}" style="color:var(--primary)">${e.email}</a>` : '–'}</td>
+        <td>${e.location_name ? `<span style="color:var(--gray-600)">${e.location_name}</span>` : '<span style="color:var(--gray-400)">–</span>'}</td>
         <td>${e.device_count > 0 ? `<span class="badge badge-blue">${e.device_count} Gerät${e.device_count > 1 ? 'e' : ''}</span>` : '<span style="color:var(--gray-400)">–</span>'}</td>
         <td>
           <div style="display:flex;gap:4px;justify-content:flex-end">
@@ -875,16 +956,19 @@
     document.getElementById('employee-name').value = e ? e.name : '';
     document.getElementById('employee-department').value = e ? (e.department || '') : '';
     document.getElementById('employee-email').value = e ? (e.email || '') : '';
+    fillLocationSelect('employee-location-id', e?.location_id || null);
     document.getElementById('employee-modal').classList.remove('hidden');
     setTimeout(() => document.getElementById('employee-name').focus(), 50);
   }
 
   async function saveEmployee() {
     const id = document.getElementById('employee-id').value;
+    const locVal = document.getElementById('employee-location-id').value;
     const body = {
       name: document.getElementById('employee-name').value.trim(),
       department: document.getElementById('employee-department').value.trim(),
       email: document.getElementById('employee-email').value.trim(),
+      location_id: locVal ? parseInt(locVal) : null,
     };
     if (!body.name) { toast('Name erforderlich', 'error'); return; }
     try {
@@ -1059,6 +1143,109 @@
     if (e.key === 'Escape') document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m => m.classList.add('hidden'));
   });
 
+  // ─── STANDORTE ───────────────────────────────────────────────────────────────
+  function fillLocationSelect(selectId, selectedId) {
+    const sel = document.getElementById(selectId);
+    sel.innerHTML = '<option value="">— Kein Standort —</option>' +
+      allLocations.map(l => `<option value="${l.id}"${l.id === selectedId ? ' selected' : ''}>${l.name}</option>`).join('');
+  }
+
+  async function loadLocations() {
+    allLocations = await api('GET', '/locations');
+    renderLocations();
+  }
+
+  function searchLocations(q) { locationSearch = q.toLowerCase(); renderLocations(); }
+
+  function renderLocations() {
+    let locs = allLocations;
+    if (locationSearch) locs = locs.filter(l =>
+      l.name.toLowerCase().includes(locationSearch) ||
+      (l.address || '').toLowerCase().includes(locationSearch)
+    );
+    const tbody = document.getElementById('locations-tbody');
+    if (!locs.length) {
+      tbody.innerHTML = '<tr><td colspan="5"><div class="empty">Keine Standorte gefunden</div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = locs.map(l => `
+      <tr style="cursor:pointer" onclick="showLocationDetails(${l.id})">
+        <td><strong>${l.name}</strong>${l.notes ? `<br><span style="font-size:12px;color:var(--gray-400)">${l.notes}</span>` : ''}</td>
+        <td>${l.address || '<span style="color:var(--gray-400)">–</span>'}</td>
+        <td>${l.employee_count > 0 ? `<span class="badge badge-blue">${l.employee_count}</span>` : '<span style="color:var(--gray-400)">0</span>'}</td>
+        <td>${l.device_count > 0 ? `<span class="badge badge-gray">${l.device_count}</span>` : '<span style="color:var(--gray-400)">0</span>'}</td>
+        <td onclick="event.stopPropagation()">
+          <div style="display:flex;gap:4px;justify-content:flex-end">
+            <button class="btn btn-sm btn-ghost admin-only" onclick="openLocationModal(${l.id})">✏️</button>
+            <button class="btn btn-sm btn-danger admin-only" onclick="deleteLocation(${l.id}, '${l.name.replace(/'/g,"\\'")}')">🗑️</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function openLocationModal(id) {
+    const l = id ? allLocations.find(x => x.id === id) : null;
+    document.getElementById('location-modal-title').textContent = l ? 'Standort bearbeiten' : 'Standort hinzufügen';
+    document.getElementById('location-id').value = l ? l.id : '';
+    document.getElementById('location-name').value = l ? l.name : '';
+    document.getElementById('location-address').value = l ? (l.address || '') : '';
+    document.getElementById('location-notes').value = l ? (l.notes || '') : '';
+    document.getElementById('location-modal').classList.remove('hidden');
+    setTimeout(() => document.getElementById('location-name').focus(), 50);
+  }
+
+  async function saveLocation() {
+    const id = document.getElementById('location-id').value;
+    const body = {
+      name: document.getElementById('location-name').value.trim(),
+      address: document.getElementById('location-address').value.trim(),
+      notes: document.getElementById('location-notes').value.trim(),
+    };
+    if (!body.name) { toast('Name erforderlich', 'error'); return; }
+    try {
+      if (id) await api('PUT', '/locations/' + id, body);
+      else await api('POST', '/locations', body);
+      closeModal('location-modal');
+      await loadLocations();
+      toast(id ? 'Standort aktualisiert' : 'Standort hinzugefügt');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  async function deleteLocation(id, name) {
+    if (!confirm(`Standort "${name}" wirklich löschen?\nMitarbeiter und Geräte verlieren die Standort-Zuordnung.`)) return;
+    try {
+      await api('DELETE', '/locations/' + id);
+      await loadLocations();
+      toast('Standort gelöscht');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  async function showLocationDetails(id) {
+    try {
+      const loc = await api('GET', '/locations/' + id + '/details');
+      document.getElementById('location-detail-title').textContent = loc.name;
+      const empRows = loc.employees.length
+        ? loc.employees.map(e => `<tr><td><strong>${e.name}</strong></td><td>${e.department || '–'}</td><td>${e.device_count > 0 ? `<span class="badge badge-blue">${e.device_count} Gerät${e.device_count > 1 ? 'e' : ''}</span>` : '–'}</td></tr>`).join('')
+        : '<tr><td colspan="3"><div class="empty" style="padding:12px">Keine Mitarbeiter</div></td></tr>';
+      const devRows = loc.devices.length
+        ? loc.devices.map(d => `<tr><td><strong>${d.name}</strong>${d.type ? ` <span style="font-size:12px;color:var(--gray-400)">${d.type}</span>` : ''}</td><td>${statusBadge(d.status)}</td><td>${d.assigned_to_name || '–'}</td></tr>`).join('')
+        : '<tr><td colspan="3"><div class="empty" style="padding:12px">Keine Geräte</div></td></tr>';
+      document.getElementById('location-detail-body').innerHTML = `
+        ${loc.address ? `<p style="color:var(--gray-600);margin-bottom:16px">📍 ${loc.address}</p>` : ''}
+        ${loc.notes ? `<p style="color:var(--gray-600);margin-bottom:16px;font-style:italic">${loc.notes}</p>` : ''}
+        <h4 style="font-size:14px;font-weight:600;margin-bottom:8px">Mitarbeiter (${loc.employees.length})</h4>
+        <div class="table-wrap" style="margin-bottom:20px">
+          <table><thead><tr><th>Name</th><th>Abteilung</th><th>Geräte</th></tr></thead><tbody>${empRows}</tbody></table>
+        </div>
+        <h4 style="font-size:14px;font-weight:600;margin-bottom:8px">Geräte (${loc.devices.length})</h4>
+        <div class="table-wrap">
+          <table><thead><tr><th>Name</th><th>Status</th><th>Zugewiesen an</th></tr></thead><tbody>${devRows}</tbody></table>
+        </div>`;
+      document.getElementById('location-detail-modal').classList.remove('hidden');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
   // ─── CSV IMPORT ──────────────────────────────────────────────────────────────
   const CSV_TEMPLATES = {
     devices: 'Name,Typ,Seriennummer,Kaufdatum,Kaufpreis,Notizen\nThinkPad X1,Laptop,SN-001,2024-01-15,1299.00,\nDell U2722D,Monitor,SN-002,,429.00,',
@@ -1106,7 +1293,7 @@
   async function init() {
     const authed = await checkAuth();
     if (!authed) return;
-    await Promise.all([loadDevices(), loadEmployees()]);
+    await Promise.all([loadDevices(), loadEmployees(), loadLocations()]);
     loadDashboard();
   }
 
