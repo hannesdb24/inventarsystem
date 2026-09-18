@@ -3,518 +3,1103 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Inventarsystem</title>
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0b0e12" />
+  <title>Inventarsystem · dachbleche24</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" />
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
+    /* ═══════════════════════════════════════════════════════════════════════
+       DESIGN TOKENS — übernommen aus DAKO (dako-web-production)
+       ═══════════════════════════════════════════════════════════════════════ */
+    :root {
+      /* Flächen */
+      --shell:            #0b0e12;
+      --background:       #101317;
+      --card:             #171b21;
+      --card-raised:      #1c2128;
+      --surface-hover:    #ffffff0a;
+      --surface-subtle:   #ffffff06;
+
+      /* Text */
+      --foreground:       #eceff3;
+      --muted-foreground: #9aa3ad;
+      --shell-foreground: #f5f6f8eb;
+      --shell-muted:      #f5f6f880;
+
+      /* Akzent */
+      --accent:           #e8702c;
+      --accent-strong:    #f2a575;
+      --accent-soft:      #e8702c29;
+      --accent-foreground:#14181d;
+
+      /* Marke */
+      --brand-red:        #e30613;
+
+      /* Status */
+      --success:          #4cc38a;
+      --warning:          #d9a441;
+      --danger:           #ef6d61;
+      --info:             #63b0cc;
+
+      /* Rahmen */
+      --border:           #ffffff14;
+      --border-strong:    #ffffff26;
+      --border-hover:     #ffffff47;
+
+      /* Radien */
+      --radius-card:      14px;
+      --radius-inner:     10px;
+      --radius-btn:       12px;
+      --radius-input:     8px;
+      --radius-pill:      999px;
+
+      /* Schatten */
+      --shadow-sm:        0 1px 2px #0000004d;
+      --shadow-card:      0 1px 2px #0000004d, 0 10px 30px -18px #0009;
+      --shadow-float:     0 2px 4px #0006, 0 24px 48px -20px #000000b3;
+
+      /* Bewegung */
+      --ease-fluid:       cubic-bezier(.32, .72, 0, 1);
+      --dur:              .18s;
+
+      /* Maße */
+      --sidebar-w:        252px;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    :root {
-      --primary: #2563eb;
-      --primary-dark: #1d4ed8;
-      --success: #16a34a;
-      --warning: #d97706;
-      --danger: #dc2626;
-      --gray-50: #f9fafb;
-      --gray-100: #f3f4f6;
-      --gray-200: #e5e7eb;
-      --gray-400: #9ca3af;
-      --gray-600: #4b5563;
-      --gray-700: #374151;
-      --gray-800: #1f2937;
-      --radius: 8px;
-      --shadow: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
-      --shadow-md: 0 4px 6px rgba(0,0,0,.07), 0 2px 4px rgba(0,0,0,.06);
-    }
+    html { -webkit-text-size-adjust: 100%; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--gray-100);
-      color: var(--gray-800);
+      font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      font-feature-settings: 'cv11', 'ss01';
+      background: var(--background);
+      color: var(--foreground);
       min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
-    /* HEADER */
-    header {
-      background: white;
-      border-bottom: 1px solid var(--gray-200);
-      padding: 0 24px;
-      display: flex;
-      align-items: center;
-      gap: 32px;
-      height: 60px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      box-shadow: var(--shadow);
-    }
-    .logo { font-size: 18px; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 8px; }
-    nav { display: flex; gap: 4px; }
-    nav button {
-      padding: 6px 16px;
-      border: none;
-      background: none;
-      border-radius: var(--radius);
-      cursor: pointer;
-      font-size: 14px;
-      color: var(--gray-600);
-      font-weight: 500;
-      transition: all .15s;
-    }
-    nav button:hover { background: var(--gray-100); color: var(--gray-800); }
-    nav button.active { background: var(--primary); color: white; }
+    ::selection { background: var(--accent-soft); color: var(--foreground); }
 
-    /* MAIN */
-    main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #ffffff1a; border-radius: 99px; border: 2px solid transparent; background-clip: content-box; }
+    ::-webkit-scrollbar-thumb:hover { background: #ffffff33; background-clip: content-box; }
 
-    /* TABS */
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+    .icon { width: 18px; height: 18px; flex-shrink: 0; stroke-width: 1.75; }
+    .icon-sm { width: 15px; height: 15px; }
+
+    .mono { font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+    .num  { font-variant-numeric: tabular-nums; }
+
+    /* Overline / Eyebrow — DAKO: 11px · 500 · 1.76px tracking · uppercase */
+    .eyebrow {
+      font-size: 11px; font-weight: 500; line-height: 1.5;
+      letter-spacing: 1.76px; text-transform: uppercase;
+      color: var(--muted-foreground);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       AMBIENT GLOW
+       ═══════════════════════════════════════════════════════════════════════ */
+    .glow {
+      pointer-events: none; position: absolute; border-radius: 50%;
+      filter: blur(64px); z-index: 0;
+    }
+    .glow-accent { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+    .glow-white  { background: #ffffff0a; }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       LOGO
+       ═══════════════════════════════════════════════════════════════════════ */
+    .wordmark {
+      display: inline-flex; align-items: baseline;
+      font-weight: 700; letter-spacing: -.03em; line-height: 1;
+      white-space: nowrap; font-size: 20px;
+    }
+    .wordmark .w-main { color: #fff; }
+    .wordmark .w-24   { color: var(--brand-red); }
+    .wordmark .w-r    { position: relative; top: -.55em; margin-left: .1em; font-size: .4em; font-weight: 600; color: #ffffff99; }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       APP-LAYOUT
+       ═══════════════════════════════════════════════════════════════════════ */
+    #app { display: flex; min-height: 100vh; }
+
+    /* ── SIDEBAR ─────────────────────────────────────────────────────────── */
+    .sidebar {
+      position: fixed; inset: 0 auto 0 0; z-index: 60;
+      width: var(--sidebar-w); flex-shrink: 0;
+      background: var(--shell);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar-brand {
+      position: relative; z-index: 1;
+      padding: 22px 20px 18px;
+      display: flex; flex-direction: column; gap: 7px;
+    }
+    .sidebar-brand .eyebrow { color: var(--shell-muted); font-size: 10px; letter-spacing: 1.6px; }
+
+    .sidebar-nav {
+      position: relative; z-index: 1;
+      flex: 1; overflow-y: auto;
+      padding: 6px 12px 12px;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .nav-section {
+      padding: 16px 8px 6px;
+      font-size: 10px; font-weight: 500; letter-spacing: 1.6px;
+      text-transform: uppercase; color: #f5f6f866;
+    }
+    .nav-item {
+      position: relative;
+      display: flex; align-items: center; gap: 11px;
+      width: 100%; padding: 9px 12px;
+      border: none; background: none; cursor: pointer;
+      border-radius: var(--radius-inner);
+      font-family: inherit; font-size: 14px; font-weight: 500;
+      color: var(--shell-muted); text-align: left;
+      transition: background var(--dur) var(--ease-fluid), color var(--dur) var(--ease-fluid);
+    }
+    .nav-item:hover { background: var(--surface-hover); color: var(--shell-foreground); }
+    .nav-item.active { background: var(--accent-soft); color: var(--accent-strong); }
+    .nav-item.active::before {
+      content: ''; position: absolute; left: -12px; top: 50%;
+      transform: translateY(-50%);
+      width: 3px; height: 18px; border-radius: 0 3px 3px 0;
+      background: var(--accent);
+    }
+    .nav-item .icon { opacity: .9; }
+    .nav-count {
+      margin-left: auto; font-size: 11px; font-weight: 500;
+      color: #f5f6f866; font-variant-numeric: tabular-nums;
+    }
+    .nav-item.active .nav-count { color: var(--accent-strong); opacity: .75; }
+
+    .sidebar-foot {
+      position: relative; z-index: 1;
+      border-top: 1px solid var(--border);
+      padding: 12px; display: flex; align-items: center; gap: 10px;
+    }
+    .avatar {
+      width: 32px; height: 32px; flex-shrink: 0;
+      border-radius: var(--radius-input);
+      background: var(--accent-soft); color: var(--accent-strong);
+      display: grid; place-items: center;
+      font-size: 12px; font-weight: 600; letter-spacing: .02em;
+      border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    }
+    .sidebar-user { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+    .sidebar-username {
+      font-size: 13px; font-weight: 500; color: var(--shell-foreground);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .sidebar-role { font-size: 11px; color: var(--shell-muted); }
+
+    /* ── MOBILE TOPBAR ───────────────────────────────────────────────────── */
+    .mobile-bar {
+      display: none;
+      position: sticky; top: 0; z-index: 50;
+      height: 56px; padding: 0 14px;
+      align-items: center; gap: 12px;
+      background: color-mix(in srgb, var(--shell) 88%, transparent);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .scrim {
+      display: none; position: fixed; inset: 0; z-index: 55;
+      background: #000000a6; backdrop-filter: blur(2px);
+    }
+
+    /* ── CONTENT ─────────────────────────────────────────────────────────── */
+    .content {
+      flex: 1; min-width: 0;
+      margin-left: var(--sidebar-w);
+      display: flex; flex-direction: column;
+    }
+    main { flex: 1; width: 100%; max-width: 1360px; margin: 0 auto; padding: 32px 32px 64px; }
+
     .tab { display: none; }
-    .tab.active { display: block; }
+    .tab.active { display: block; animation: fade-up .3s var(--ease-fluid); }
+    @keyframes fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-    /* STATS */
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px; }
-    .stat-card {
-      background: white;
-      border-radius: var(--radius);
-      padding: 20px;
-      box-shadow: var(--shadow);
-      text-align: center;
+    /* ── PAGE HEAD ───────────────────────────────────────────────────────── */
+    .page-head {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      gap: 20px; flex-wrap: wrap; margin-bottom: 24px;
     }
-    .stat-card .value { font-size: 36px; font-weight: 700; line-height: 1; }
-    .stat-card .label { font-size: 13px; color: var(--gray-600); margin-top: 4px; }
-    .stat-card.blue .value { color: var(--primary); }
-    .stat-card.green .value { color: var(--success); }
-    .stat-card.orange .value { color: var(--warning); }
-    .stat-card.red .value { color: var(--danger); }
+    .page-head h1 {
+      font-size: 28px; font-weight: 600; letter-spacing: -.5px;
+      line-height: 1.15; color: #fff;
+    }
+    .page-head p { font-size: 14px; color: var(--muted-foreground); margin-top: 5px; }
+    .page-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-    /* CARDS */
+    /* ═══════════════════════════════════════════════════════════════════════
+       KARTEN
+       ═══════════════════════════════════════════════════════════════════════ */
     .card {
-      background: white;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
       overflow: hidden;
     }
     .card-header {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--gray-200);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .card-header h2 { font-size: 16px; font-weight: 600; }
-
-    /* SEARCH */
-    .search-box {
-      padding: 6px 12px;
-      border: 1px solid var(--gray-200);
-      border-radius: var(--radius);
-      font-size: 14px;
-      width: 220px;
-      outline: none;
-      transition: border .15s;
-    }
-    .search-box:focus { border-color: var(--primary); }
-
-    /* FILTER PILLS */
-    .filter-pills { display: flex; gap: 6px; flex-wrap: wrap; }
-    .pill {
-      padding: 4px 12px;
-      border-radius: 20px;
-      border: 1px solid var(--gray-200);
-      background: white;
-      font-size: 13px;
-      cursor: pointer;
-      transition: all .15s;
-      color: var(--gray-600);
-    }
-    .pill.active { background: var(--primary); color: white; border-color: var(--primary); }
-
-    /* TABLE */
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    th { padding: 10px 16px; text-align: left; font-size: 12px; font-weight: 600; color: var(--gray-600); text-transform: uppercase; letter-spacing: .05em; background: var(--gray-50); border-bottom: 1px solid var(--gray-200); }
-    td { padding: 12px 16px; border-bottom: 1px solid var(--gray-100); vertical-align: middle; }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background: var(--gray-50); }
-
-    /* BADGES */
-    .badge {
-      display: inline-block;
-      padding: 2px 10px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    .badge-green { background: #dcfce7; color: #15803d; }
-    .badge-orange { background: #fef3c7; color: #92400e; }
-    .badge-red { background: #fee2e2; color: #991b1b; }
-    .badge-gray { background: var(--gray-100); color: var(--gray-600); }
-    .badge-blue { background: #dbeafe; color: #1e40af; }
-
-    /* BUTTONS */
-    .btn {
-      padding: 7px 14px;
-      border-radius: var(--radius);
-      border: none;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all .15s;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .btn-primary { background: var(--primary); color: white; }
-    .btn-primary:hover { background: var(--primary-dark); }
-    .btn-sm { padding: 4px 10px; font-size: 12px; }
-    .btn-ghost { background: none; color: var(--gray-600); }
-    .btn-ghost:hover { background: var(--gray-100); color: var(--gray-800); }
-    .btn-danger { background: #fee2e2; color: var(--danger); }
-    .btn-danger:hover { background: #fecaca; }
-    .btn-success { background: #dcfce7; color: var(--success); }
-    .btn-success:hover { background: #bbf7d0; }
-    .btn-warning { background: #fef3c7; color: #92400e; }
-    .btn-warning:hover { background: #fde68a; }
-
-    /* MODAL */
-    .modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,.4);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 1000;
-      padding: 16px;
-    }
-    .modal-overlay.hidden { display: none; }
-    .modal {
-      background: white;
-      border-radius: 12px;
-      width: 100%;
-      max-width: 480px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.2);
-      overflow: hidden;
-    }
-    .modal-header {
-      padding: 20px 24px 16px;
-      border-bottom: 1px solid var(--gray-200);
+      padding: 15px 18px;
+      border-bottom: 1px solid var(--border);
       display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap;
     }
-    .modal-header h3 { font-size: 17px; font-weight: 600; }
-    .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--gray-400); line-height: 1; padding: 4px; }
-    .modal-close:hover { color: var(--gray-800); }
-    .modal-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
-    .modal-footer { padding: 16px 24px; border-top: 1px solid var(--gray-200); display: flex; gap: 8px; justify-content: flex-end; }
+    .card-header h2 { font-size: 14px; font-weight: 600; letter-spacing: -.1px; }
+    .card-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-    /* FORM */
-    .form-group { display: flex; flex-direction: column; gap: 4px; }
-    label { font-size: 13px; font-weight: 500; color: var(--gray-700); }
-    input, select, textarea {
-      padding: 8px 12px;
-      border: 1px solid var(--gray-200);
-      border-radius: var(--radius);
-      font-size: 14px;
-      outline: none;
-      transition: border .15s;
-      font-family: inherit;
-      color: var(--gray-800);
+    /* ── DASHBOARD: HERO ─────────────────────────────────────────────────── */
+    .hero {
+      position: relative; overflow: hidden;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
+      padding: 26px 28px;
+      display: grid; grid-template-columns: minmax(180px, 260px) 1fr;
+      gap: 36px; align-items: center;
+      margin-bottom: 16px;
     }
-    input:focus, select:focus, textarea:focus { border-color: var(--primary); }
-    textarea { resize: vertical; min-height: 80px; }
+    .hero > *:not(.glow) { position: relative; z-index: 1; }
+    .hero-figure { display: flex; flex-direction: column; gap: 9px; }
+    .hero-value {
+      font-size: 52px; font-weight: 600; letter-spacing: -1.8px; line-height: 1;
+      color: #fff; font-variant-numeric: tabular-nums;
+    }
+    .hero-note { font-size: 13px; color: var(--muted-foreground); }
+
+    .meter { display: flex; height: 10px; border-radius: var(--radius-pill); overflow: hidden; background: #ffffff0d; gap: 2px; }
+    /* Die Breiten setzt loadDashboard() einmalig – kein Übergang auf width,
+       das würde bei jedem Frame ein Reflow der ganzen Zeile auslösen. */
+    .meter span { display: block; height: 100%; min-width: 0; }
+    .meter .m-available { background: var(--success); }
+    .meter .m-assigned  { background: var(--accent); }
+    .meter .m-defect    { background: var(--danger); }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 16px; }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted-foreground); }
+    .legend-dot { width: 8px; height: 8px; border-radius: 3px; flex-shrink: 0; }
+    .legend-item b { color: var(--foreground); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    /* ── DASHBOARD: STAT-KACHELN ─────────────────────────────────────────── */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px; margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      padding: 18px;
+      display: flex; flex-direction: column; gap: 12px;
+      transition: border-color var(--dur) var(--ease-fluid), transform var(--dur) var(--ease-fluid);
+    }
+    .stat-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+    .stat-top { display: flex; align-items: center; gap: 8px; }
+    .stat-card .value {
+      font-size: 32px; font-weight: 600; letter-spacing: -1px; line-height: 1;
+      color: #fff; font-variant-numeric: tabular-nums;
+    }
+    .stat-card .sub { font-size: 12px; color: var(--muted-foreground); }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       SUCHE · FILTER
+       ═══════════════════════════════════════════════════════════════════════ */
+    .search-wrap { position: relative; display: inline-flex; align-items: center; }
+    .search-wrap .icon {
+      position: absolute; left: 11px; color: var(--muted-foreground);
+      pointer-events: none; width: 15px; height: 15px;
+    }
+    .search-box {
+      width: 230px; padding: 8px 12px 8px 33px;
+      background: var(--background); color: var(--foreground);
+      border: none; border-radius: var(--radius-input);
+      box-shadow: inset 0 0 0 1px #ffffff26;
+      font-family: inherit; font-size: 13px; outline: none;
+      transition: box-shadow var(--dur) var(--ease-fluid);
+    }
+    .search-box::placeholder { color: #9aa3ad99; }
+    .search-box:focus { box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
+
+    .filter-pills { display: flex; gap: 4px; flex-wrap: wrap; padding: 3px; background: var(--background); border-radius: var(--radius-inner); }
+    .pill {
+      padding: 6px 13px; border-radius: 7px; border: none; background: none;
+      font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer;
+      color: var(--muted-foreground); white-space: nowrap;
+      transition: background var(--dur) var(--ease-fluid), color var(--dur) var(--ease-fluid);
+    }
+    .pill:hover { color: var(--foreground); }
+    .pill.active { background: var(--card-raised); color: var(--foreground); box-shadow: var(--shadow-sm); }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       TABELLEN
+       ═══════════════════════════════════════════════════════════════════════ */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    th {
+      padding: 11px 16px; text-align: left; white-space: nowrap;
+      font-size: 10.5px; font-weight: 500; letter-spacing: 1.2px; text-transform: uppercase;
+      color: var(--muted-foreground);
+      background: var(--surface-subtle);
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 13px 13px; border-bottom: 1px solid #ffffff0d;
+      vertical-align: middle; color: var(--foreground);
+    }
+    th { padding-left: 13px; padding-right: 13px; }
+    tbody tr { transition: background var(--dur) var(--ease-fluid); }
+    tbody tr:hover td { background: var(--surface-subtle); }
+    tr:last-child td { border-bottom: none; }
+    td .dim { color: var(--muted-foreground); }
+    td .faint { color: #9aa3ad80; }
+    .row-actions { display: flex; gap: 4px; justify-content: flex-end; align-items: center; }
+
+    /* Aktionsspalte bleibt beim horizontalen Scrollen breiter Tabellen stehen.
+       Sticky braucht eine deckende Fläche – daher feste Farben statt Alpha. */
+    .card .table-wrap th:last-child,
+    .card .table-wrap td:last-child {
+      position: sticky; right: 0;
+      background: var(--card);
+      box-shadow: -10px 0 12px -12px #000c;
+    }
+    .card .table-wrap th:last-child { background: #181b21; }
+    .card .table-wrap tbody tr:hover td:last-child { background: #1c2027; }
+
+    .inv-no { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; font-weight: 500; color: var(--accent-strong); white-space: nowrap; }
+    .serial { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; color: var(--muted-foreground); }
+    td a { color: var(--accent-strong); text-decoration: none; }
+    td a:hover { text-decoration: underline; }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       BADGES
+       ═══════════════════════════════════════════════════════════════════════ */
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 9px; border-radius: var(--radius-pill);
+      font-size: 11.5px; font-weight: 500; white-space: nowrap;
+      border: 1px solid transparent;
+    }
+    .badge::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+    .badge-plain::before { display: none; }
+    .badge-green  { color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); border-color: color-mix(in srgb, var(--success) 26%, transparent); }
+    .badge-orange { color: var(--accent-strong); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 34%, transparent); }
+    .badge-red    { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); border-color: color-mix(in srgb, var(--danger) 26%, transparent); }
+    .badge-blue   { color: var(--info); background: color-mix(in srgb, var(--info) 14%, transparent); border-color: color-mix(in srgb, var(--info) 26%, transparent); }
+    .badge-gray   { color: var(--muted-foreground); background: #ffffff0d; border-color: var(--border); }
+
+    .role-badge {
+      display: inline-flex; align-items: center;
+      font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: var(--radius-pill);
+      border: 1px solid transparent;
+    }
+    .role-badge.admin { color: var(--accent-strong); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 34%, transparent); }
+    .role-badge.user  { color: var(--muted-foreground); background: #ffffff0d; border-color: var(--border); }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       BUTTONS
+       ═══════════════════════════════════════════════════════════════════════ */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      padding: 8px 14px; border: 1px solid transparent; border-radius: var(--radius-btn);
+      font-family: inherit; font-size: 13px; font-weight: 500; line-height: 1.25;
+      cursor: pointer; white-space: nowrap;
+      transition: background var(--dur) var(--ease-fluid), border-color var(--dur) var(--ease-fluid),
+                  color var(--dur) var(--ease-fluid), transform var(--dur) var(--ease-fluid);
+    }
+    .btn:active { transform: translateY(1px); }
+
+    /* Primär — hell auf dunkel, exakt wie DAKOs Login-Button */
+    .btn-primary { background: var(--foreground); color: var(--accent-foreground); box-shadow: var(--shadow-sm); }
+    .btn-primary:hover { background: #fff; }
+
+    /* Akzent — die eine wichtigste Aktion pro Seite */
+    .btn-accent { background: var(--accent); color: var(--accent-foreground); font-weight: 600; box-shadow: var(--shadow-sm); }
+    .btn-accent:hover { background: #f07b3a; }
+
+    .btn-ghost { background: transparent; color: var(--muted-foreground); border-color: var(--border); }
+    .btn-ghost:hover { background: var(--surface-hover); color: var(--foreground); border-color: var(--border-hover); }
+
+    .btn-quiet { background: transparent; color: var(--muted-foreground); border-color: transparent; }
+    .btn-quiet:hover { background: var(--surface-hover); color: var(--foreground); }
+
+    .btn-success { background: color-mix(in srgb, var(--success) 13%, transparent); color: var(--success); border-color: color-mix(in srgb, var(--success) 28%, transparent); }
+    .btn-success:hover { background: color-mix(in srgb, var(--success) 22%, transparent); }
+
+    .btn-warning { background: var(--accent-soft); color: var(--accent-strong); border-color: color-mix(in srgb, var(--accent) 32%, transparent); }
+    .btn-warning:hover { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+
+    .btn-danger { background: transparent; color: var(--danger); border-color: color-mix(in srgb, var(--danger) 26%, transparent); }
+    .btn-danger:hover { background: color-mix(in srgb, var(--danger) 15%, transparent); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+
+    .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 9px; }
+
+    .btn-icon {
+      width: 30px; height: 30px; padding: 0; border-radius: 9px;
+      background: transparent; color: var(--muted-foreground); border-color: transparent;
+    }
+    .btn-icon:hover { background: var(--surface-hover); color: var(--foreground); }
+    .btn-icon.danger:hover { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       FORMULARE
+       ═══════════════════════════════════════════════════════════════════════ */
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    label { font-size: 13px; font-weight: 500; color: var(--shell-foreground); }
+    .hint { font-size: 11.5px; color: #9aa3ad99; }
+
+    input, select, textarea {
+      width: 100%; padding: 9px 12px;
+      background: var(--card); color: var(--foreground);
+      border: none; border-radius: var(--radius-input);
+      box-shadow: inset 0 0 0 1px #ffffff26;
+      font-family: inherit; font-size: 14px; line-height: 1.4;
+      outline: none;
+      transition: box-shadow var(--dur) var(--ease-fluid);
+    }
+    input::placeholder, textarea::placeholder { color: #9aa3ad80; }
+    input:hover, select:hover, textarea:hover { box-shadow: inset 0 0 0 1px var(--border-hover); }
+    input:focus, select:focus, textarea:focus { box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
+    input:disabled { color: var(--muted-foreground); background: var(--background); cursor: not-allowed; }
+    textarea { resize: vertical; min-height: 78px; }
+    select {
+      appearance: none; cursor: pointer; padding-right: 34px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aa3ad' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 11px center;
+    }
+    select option { background: var(--card); color: var(--foreground); }
+    input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.65); cursor: pointer; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-    /* EMPTY STATE */
-    .empty { padding: 48px; text-align: center; color: var(--gray-400); }
-    .empty svg { margin-bottom: 12px; opacity: .4; }
-
-    /* TOAST */
-    #toast {
-      position: fixed; bottom: 24px; right: 24px;
-      background: var(--gray-800); color: white;
-      padding: 12px 20px; border-radius: var(--radius);
-      font-size: 14px; z-index: 9999;
-      transform: translateY(80px); opacity: 0;
-      transition: all .3s;
-      max-width: 320px;
-    }
-    #toast.show { transform: translateY(0); opacity: 1; }
-    #toast.error { background: var(--danger); }
-    #toast.success { background: var(--success); }
-
-    /* HISTORY */
-    .history-item {
-      display: flex; gap: 12px; align-items: flex-start;
-      padding: 12px 0; border-bottom: 1px solid var(--gray-100);
-    }
-    .history-item:last-child { border-bottom: none; }
-    .history-dot {
-      width: 10px; height: 10px; border-radius: 50%;
-      background: var(--primary); margin-top: 5px; flex-shrink: 0;
-    }
-    .history-dot.returned { background: var(--gray-400); }
-
-    /* LOGIN OVERLAY */
-    #login-overlay {
-      position: fixed; inset: 0;
-      background: var(--gray-100);
+    /* ═══════════════════════════════════════════════════════════════════════
+       MODAL
+       ═══════════════════════════════════════════════════════════════════════ */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: #000000b3; backdrop-filter: blur(4px);
       display: flex; align-items: center; justify-content: center;
-      z-index: 9000;
+      padding: 16px; overflow-y: auto;
+      animation: fade-in .2s var(--ease-fluid);
+    }
+    .modal-overlay.hidden { display: none; }
+    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+    .modal {
+      background: var(--card);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-float);
+      width: 100%; max-width: 500px; margin: auto;
+      overflow: hidden;
+      animation: modal-in .26s var(--ease-fluid);
+    }
+    @keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+    .modal-header {
+      padding: 18px 22px 15px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .modal-header h3 { font-size: 16px; font-weight: 600; letter-spacing: -.2px; }
+    .modal-close {
+      display: grid; place-items: center; width: 30px; height: 30px;
+      background: none; border: none; border-radius: 9px;
+      color: var(--muted-foreground); cursor: pointer;
+      transition: background var(--dur) var(--ease-fluid), color var(--dur) var(--ease-fluid);
+    }
+    .modal-close:hover { background: var(--surface-hover); color: var(--foreground); }
+    .modal-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 15px; }
+    .modal-footer {
+      padding: 15px 22px; border-top: 1px solid var(--border);
+      background: var(--surface-subtle);
+      display: flex; gap: 8px; justify-content: flex-end;
+    }
+    .modal h4 { font-size: 13px; font-weight: 600; margin-bottom: 9px; color: var(--foreground); }
+    .modal .table-wrap { border: 1px solid var(--border); border-radius: var(--radius-inner); }
+    .modal .table-wrap th:first-child, .modal .table-wrap td:first-child { padding-left: 14px; }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       LEERZUSTAND
+       ═══════════════════════════════════════════════════════════════════════ */
+    .empty {
+      padding: 52px 24px; text-align: center;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+    .empty .icon { width: 26px; height: 26px; color: var(--muted-foreground); opacity: .45; }
+    .empty-title { font-size: 14px; font-weight: 500; color: var(--foreground); }
+    .empty-note { font-size: 13px; color: var(--muted-foreground); }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       TOAST
+       ═══════════════════════════════════════════════════════════════════════ */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+      display: flex; align-items: center; gap: 10px;
+      max-width: 340px; padding: 12px 16px;
+      background: var(--card-raised); color: var(--foreground);
+      border: 1px solid var(--border-strong); border-radius: var(--radius-btn);
+      box-shadow: var(--shadow-float);
+      font-size: 13.5px;
+      transform: translateY(20px); opacity: 0; pointer-events: none;
+      transition: transform .3s var(--ease-fluid), opacity .3s var(--ease-fluid);
+    }
+    #toast::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+    #toast.show { transform: none; opacity: 1; }
+    #toast.error::before { background: var(--danger); }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       LOGIN — Split-Screen wie DAKO
+       ═══════════════════════════════════════════════════════════════════════ */
+    #login-overlay {
+      position: fixed; inset: 0; z-index: 9000;
+      display: grid; grid-template-columns: 1fr 1.25fr;
+      background: var(--background);
     }
     #login-overlay.hidden { display: none; }
-    .login-box {
-      background: white;
-      border-radius: 12px;
+
+    .login-brand {
+      position: relative; overflow: hidden;
+      background: var(--shell); color: var(--shell-foreground);
       padding: 40px;
-      width: 100%;
-      max-width: 380px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.15);
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
+      display: flex; flex-direction: column; justify-content: space-between;
     }
-    .login-box .logo { justify-content: center; font-size: 22px; }
-    .login-title { font-size: 20px; font-weight: 600; text-align: center; color: var(--gray-800); margin-top: -4px; }
-    .login-error { color: var(--danger); font-size: 13px; text-align: center; display: none; }
-
-    /* HEADER USER INFO */
-    .header-spacer { flex: 1; }
-    .header-user { display: flex; align-items: center; gap: 10px; }
-    .header-username { font-size: 14px; color: var(--gray-600); font-weight: 500; }
-    .role-badge {
-      font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600;
+    .login-brand > *:not(.glow) { position: relative; z-index: 1; }
+    .login-pitch { max-width: 420px; }
+    .login-pitch h1 {
+      font-size: 34px; font-weight: 600; line-height: 1.15; letter-spacing: -.51px;
+      color: #fff; margin: 14px 0 16px;
     }
-    .role-badge.admin { background: #ede9fe; color: #6d28d9; }
-    .role-badge.user { background: var(--gray-100); color: var(--gray-600); }
+    .login-pitch p { font-size: 14px; line-height: 1.625; color: var(--shell-muted); }
+    .login-foot { font-size: 12px; color: #f5f6f866; }
 
-    /* ROLE-BASED VISIBILITY */
+    .login-panel { display: flex; align-items: center; justify-content: center; padding: 48px 24px; }
+    .login-box { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 16px; }
+    .login-box .wordmark { display: none; margin-bottom: 4px; }
+    .login-title { font-size: 22px; font-weight: 600; letter-spacing: -.3px; color: #fff; }
+    .login-sub { font-size: 13.5px; color: var(--muted-foreground); margin-top: 4px; }
+    .login-error {
+      display: none; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--danger);
+      background: color-mix(in srgb, var(--danger) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--danger) 28%, transparent);
+      border-radius: var(--radius-input); padding: 9px 12px;
+    }
+    .login-error.show { display: flex; }
+    .login-submit { padding: 11px; font-size: 14.5px; }
+    .login-legal { font-size: 12px; color: #9aa3ad99; line-height: 1.5; }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       ROLLEN
+       ═══════════════════════════════════════════════════════════════════════ */
     body.role-user .admin-only { display: none !important; }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       RESPONSIVE
+       ═══════════════════════════════════════════════════════════════════════ */
+    @media (max-width: 1180px) {
+      .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      main { padding: 28px 24px 56px; }
+    }
+
+    @media (max-width: 1023px) {
+      #login-overlay { grid-template-columns: 1fr; }
+      .login-brand { display: none; }
+      .login-box .wordmark { display: inline-flex; }
+    }
+
+    @media (max-width: 900px) {
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform .3s var(--ease-fluid);
+        box-shadow: var(--shadow-float);
+      }
+      body.nav-open .sidebar { transform: none; }
+      body.nav-open .scrim { display: block; animation: fade-in .2s var(--ease-fluid); }
+      .content { margin-left: 0; }
+      .mobile-bar { display: flex; }
+      main { padding: 20px 16px 56px; }
+      .hero { grid-template-columns: 1fr; gap: 22px; padding: 22px; }
+      .hero-value { font-size: 42px; }
+      .page-head h1 { font-size: 23px; }
+      .page-head { margin-bottom: 20px; }
+      .search-box { width: 100%; }
+      .search-wrap { flex: 1; min-width: 150px; }
+      .card-header { padding: 14px; }
+      th, td { padding-left: 14px; padding-right: 14px; }
+      /* Spalten zweiter Priorität ausblenden */
+      .col-optional { display: none; }
+      /* Zeilen-Aktionen auf Icons reduzieren – der Titel bleibt als Tooltip */
+      .row-actions .btn-label { display: none; }
+      .row-actions .btn-sm { padding: 6px 8px; }
+      #toast { left: 16px; right: 16px; bottom: 16px; max-width: none; }
+      .modal-footer .btn { flex: 1; }
+    }
+
+    @media (max-width: 560px) {
+      .col-narrow { display: none; }
+      .stats-grid { grid-template-columns: 1fr; gap: 12px; }
+      .form-row { grid-template-columns: 1fr; }
+      .page-actions { width: 100%; }
+      .legend { gap: 8px 16px; }
+      .modal-body { padding: 18px 16px; }
+      .modal-header, .modal-footer { padding-left: 16px; padding-right: 16px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+      }
+    }
+
+    @media print {
+      .sidebar, .mobile-bar, .page-actions, .card-tools, .row-actions, #toast { display: none !important; }
+      .content { margin-left: 0; }
+      body, .card { background: #fff; color: #000; }
+    }
   </style>
 </head>
 <body>
 
+<!-- ═══ ICON-SPRITE ═══════════════════════════════════════════════════════ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <g id="i-dashboard" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></g>
+    <g id="i-device" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M2 20h20"/></g>
+    <g id="i-users" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="3.2"/><path d="M22 20v-2a4 4 0 0 0-3-3.87"/><path d="M16 4.13a4 4 0 0 1 0 5.74"/></g>
+    <g id="i-pin" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10.5c0 5.5-8 11.5-8 11.5s-8-6-8-11.5a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10.2" r="2.8"/></g>
+    <g id="i-clock" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.4 2"/></g>
+    <g id="i-shield" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.5 8-9.5V5.5L12 2.5 4 5.5v7C4 18.5 12 22 12 22Z"/><path d="m9 12 2 2 4-4"/></g>
+    <g id="i-logout" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M11 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5"/></g>
+    <g id="i-search" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></g>
+    <g id="i-plus" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></g>
+    <g id="i-upload" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m8 8 4-4 4 4"/><path d="M12 4v12"/></g>
+    <g id="i-download" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m8 12 4 4 4-4"/><path d="M12 16V4"/></g>
+    <g id="i-edit" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7.5 18.5 3 20l1.5-4.5Z"/></g>
+    <g id="i-trash" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4.5A1.5 1.5 0 0 1 9.5 3h5A1.5 1.5 0 0 1 16 4.5V6"/><path d="M18.5 6 18 19.2a2 2 0 0 1-2 1.8H8a2 2 0 0 1-2-1.8L5.5 6"/><path d="M10 11v5M14 11v5"/></g>
+    <g id="i-return" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></g>
+    <g id="i-assign" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M15 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="3.2"/><path d="M19 8v6M22 11h-6"/></g>
+    <g id="i-close" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></g>
+    <g id="i-menu" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></g>
+    <g id="i-inbox" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12h-5l-2 3h-4l-2-3H3"/><path d="M5.5 5h13l2.5 7v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6Z"/></g>
+    <g id="i-alert" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16.2h.01"/></g>
+  </defs>
+</svg>
+
+<!-- ═══ LOGIN ═════════════════════════════════════════════════════════════ -->
 <div id="login-overlay">
-  <div class="login-box">
-    <div class="logo">
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-      Inventarsystem
+  <aside class="login-brand">
+    <div class="glow glow-accent" style="width:420px;height:420px;left:-96px;top:-96px"></div>
+    <div class="glow glow-white" style="width:360px;height:360px;right:-80px;bottom:-128px"></div>
+    <span class="wordmark" style="font-size:24px"><span class="w-main">dachbleche</span><span class="w-24">24</span><span class="w-r">&reg;</span></span>
+    <div class="login-pitch">
+      <p class="eyebrow" style="color:#f5f6f880">Inventarsystem &middot; Interne IT</p>
+      <h1>Jedes Ger&auml;t. Jeder Mitarbeiter. Jeder Standort.</h1>
+      <p>Bestand erfassen, Ger&auml;te zuweisen, R&uuml;ckgaben dokumentieren. Das Inventarsystem h&auml;lt fest, wer was seit wann hat, an allen Standorten.</p>
     </div>
-    <p class="login-title">Anmelden</p>
-    <div class="form-group">
-      <label>Benutzername</label>
-      <input id="login-username" type="text" placeholder="Benutzername" autocomplete="username" />
+    <p class="login-foot">dachbleche24 &middot; interne IT</p>
+  </aside>
+
+  <div class="login-panel">
+    <div class="login-box">
+      <span class="wordmark" style="font-size:22px"><span class="w-main">dachbleche</span><span class="w-24">24</span><span class="w-r">&reg;</span></span>
+      <div>
+        <p class="login-title">Anmelden</p>
+        <p class="login-sub">Mit deinem Inventar-Konto.</p>
+      </div>
+      <div class="form-group">
+        <label for="login-username">Benutzername</label>
+        <input id="login-username" type="text" placeholder="benutzername" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label for="login-password">Passwort</label>
+        <input id="login-password" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" />
+      </div>
+      <p id="login-error" class="login-error"><svg class="icon icon-sm"><use href="#i-alert"/></svg><span id="login-error-text"></span></p>
+      <button class="btn btn-primary login-submit" onclick="doLogin()">Anmelden</button>
+      <p class="login-legal">Kein Konto? Ein Administrator legt dich im Benutzerbereich an.</p>
     </div>
-    <div class="form-group">
-      <label>Passwort</label>
-      <input id="login-password" type="password" placeholder="Passwort" autocomplete="current-password" />
-    </div>
-    <p id="login-error" class="login-error"></p>
-    <button class="btn btn-primary" style="padding:10px;font-size:15px" onclick="doLogin()">Anmelden</button>
   </div>
 </div>
 
-<header>
-  <div class="logo">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-    Inventarsystem
-  </div>
-  <nav>
-    <button class="active" onclick="showTab('dashboard')">Dashboard</button>
-    <button onclick="showTab('devices')">Geräte</button>
-    <button onclick="showTab('employees')">Mitarbeiter</button>
-    <button onclick="showTab('locations')">Standorte</button>
-    <button onclick="showTab('history')">Verlauf</button>
-    <button class="admin-only" onclick="showTab('users')">Benutzer</button>
-  </nav>
-  <div class="header-spacer"></div>
-  <div class="header-user">
-    <span id="header-username" class="header-username"></span>
-    <span id="header-role" class="role-badge"></span>
-    <button class="btn btn-sm btn-ghost" onclick="doLogout()">Abmelden</button>
-  </div>
-</header>
+<!-- ═══ APP ═══════════════════════════════════════════════════════════════ -->
+<div id="app">
 
-<main>
+  <div class="scrim" onclick="closeNav()"></div>
 
-  <!-- DASHBOARD -->
-  <div id="tab-dashboard" class="tab active">
-    <div class="stats-grid">
-      <div class="stat-card blue"><div class="value" id="stat-total">–</div><div class="label">Geräte gesamt</div></div>
-      <div class="stat-card green"><div class="value" id="stat-available">–</div><div class="label">Verfügbar</div></div>
-      <div class="stat-card orange"><div class="value" id="stat-assigned">–</div><div class="label">Zugewiesen</div></div>
-      <div class="stat-card red"><div class="value" id="stat-defect">–</div><div class="label">Defekt</div></div>
-      <div class="stat-card blue"><div class="value" id="stat-employees">–</div><div class="label">Mitarbeiter</div></div>
+  <aside class="sidebar">
+    <div class="glow glow-accent" style="width:300px;height:300px;left:-140px;top:-120px"></div>
+
+    <div class="sidebar-brand">
+      <span class="wordmark"><span class="w-main">dachbleche</span><span class="w-24">24</span><span class="w-r">&reg;</span></span>
+      <p class="eyebrow">Inventarsystem</p>
     </div>
 
-    <div class="card">
-      <div class="card-header"><h2>Aktuelle Zuweisungen</h2></div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Gerät</th><th>Mitarbeiter</th><th>Abteilung</th><th>Seit</th><th></th></tr></thead>
-          <tbody id="dashboard-assignments"></tbody>
-        </table>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-tab="dashboard" onclick="showTab('dashboard', this)">
+        <svg class="icon"><use href="#i-dashboard"/></svg> Dashboard
+      </button>
+
+      <p class="nav-section">Bestand</p>
+      <button class="nav-item" data-tab="devices" onclick="showTab('devices', this)">
+        <svg class="icon"><use href="#i-device"/></svg> Ger&auml;te <span class="nav-count" id="nav-count-devices"></span>
+      </button>
+      <button class="nav-item" data-tab="employees" onclick="showTab('employees', this)">
+        <svg class="icon"><use href="#i-users"/></svg> Mitarbeiter <span class="nav-count" id="nav-count-employees"></span>
+      </button>
+      <button class="nav-item" data-tab="locations" onclick="showTab('locations', this)">
+        <svg class="icon"><use href="#i-pin"/></svg> Standorte <span class="nav-count" id="nav-count-locations"></span>
+      </button>
+
+      <p class="nav-section">Protokoll</p>
+      <button class="nav-item" data-tab="history" onclick="showTab('history', this)">
+        <svg class="icon"><use href="#i-clock"/></svg> Verlauf
+      </button>
+      <button class="nav-item admin-only" data-tab="users" onclick="showTab('users', this)">
+        <svg class="icon"><use href="#i-shield"/></svg> Benutzer
+      </button>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="avatar" id="header-avatar">–</div>
+      <div class="sidebar-user">
+        <span class="sidebar-username" id="header-username"></span>
+        <span class="sidebar-role" id="header-role"></span>
       </div>
+      <button class="btn btn-icon" onclick="doLogout()" title="Abmelden" aria-label="Abmelden">
+        <svg class="icon"><use href="#i-logout"/></svg>
+      </button>
     </div>
-  </div>
+  </aside>
 
-  <!-- GERÄTE -->
-  <div id="tab-devices" class="tab">
-    <div class="card">
-      <div class="card-header">
-        <h2>Geräte</h2>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <div class="filter-pills">
-            <span class="pill active" onclick="filterDevices('all', this)">Alle</span>
-            <span class="pill" onclick="filterDevices('verfügbar', this)">Verfügbar</span>
-            <span class="pill" onclick="filterDevices('vergeben', this)">Zugewiesen</span>
-            <span class="pill" onclick="filterDevices('defekt', this)">Defekt</span>
+  <div class="content">
+
+    <div class="mobile-bar">
+      <button class="btn btn-icon" onclick="openNav()" aria-label="Men&uuml; &ouml;ffnen">
+        <svg class="icon"><use href="#i-menu"/></svg>
+      </button>
+      <span class="wordmark" style="font-size:17px"><span class="w-main">dachbleche</span><span class="w-24">24</span></span>
+      <span class="eyebrow" style="margin-left:-4px">Inventar</span>
+    </div>
+
+    <main>
+
+      <!-- ── DASHBOARD ─────────────────────────────────────────────────── -->
+      <div id="tab-dashboard" class="tab active">
+        <div class="page-head">
+          <div>
+            <h1>Dashboard</h1>
+            <p id="dashboard-subtitle">&Uuml;berblick &uuml;ber Bestand und Zuweisungen</p>
           </div>
-          <input type="text" class="search-box" placeholder="Suchen…" oninput="searchDevices(this.value)" />
-          <button class="btn btn-primary admin-only" onclick="openDeviceModal()">+ Gerät hinzufügen</button>
-          <button class="btn btn-ghost admin-only" onclick="document.getElementById('device-csv-input').click()">↑ Import (xlsx/csv)</button>
-          <button class="btn btn-ghost admin-only" onclick="downloadTemplate('devices')">⬇ Vorlage</button>
-          <input type="file" id="device-csv-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="importCSV('devices', this)" />
+        </div>
+
+        <section class="hero">
+          <div class="glow glow-accent" style="width:280px;height:280px;right:-90px;top:-130px;opacity:.5"></div>
+          <div class="hero-figure">
+            <p class="eyebrow">Ger&auml;tebestand</p>
+            <p class="hero-value" id="stat-total">&ndash;</p>
+            <p class="hero-note" id="hero-note">Ger&auml;te erfasst</p>
+          </div>
+          <div>
+            <div class="meter" role="img" aria-label="Verteilung des Ger&auml;tebestands">
+              <span class="m-available" id="meter-available" style="width:0"></span>
+              <span class="m-assigned"  id="meter-assigned"  style="width:0"></span>
+              <span class="m-defect"    id="meter-defect"    style="width:0"></span>
+            </div>
+            <div class="legend">
+              <span class="legend-item"><i class="legend-dot" style="background:var(--success)"></i> Verf&uuml;gbar <b id="legend-available">&ndash;</b></span>
+              <span class="legend-item"><i class="legend-dot" style="background:var(--accent)"></i> Zugewiesen <b id="legend-assigned">&ndash;</b></span>
+              <span class="legend-item"><i class="legend-dot" style="background:var(--danger)"></i> Defekt <b id="legend-defect">&ndash;</b></span>
+            </div>
+          </div>
+        </section>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-top"><i class="legend-dot" style="background:var(--success)"></i><span class="eyebrow">Verf&uuml;gbar</span></div>
+            <p class="value" id="stat-available">&ndash;</p>
+            <p class="sub">sofort einsatzbereit</p>
+          </div>
+          <div class="stat-card">
+            <div class="stat-top"><i class="legend-dot" style="background:var(--accent)"></i><span class="eyebrow">Zugewiesen</span></div>
+            <p class="value" id="stat-assigned">&ndash;</p>
+            <p class="sub">aktuell im Einsatz</p>
+          </div>
+          <div class="stat-card">
+            <div class="stat-top"><i class="legend-dot" style="background:var(--danger)"></i><span class="eyebrow">Defekt</span></div>
+            <p class="value" id="stat-defect">&ndash;</p>
+            <p class="sub">gesperrt oder in Reparatur</p>
+          </div>
+          <div class="stat-card">
+            <div class="stat-top"><i class="legend-dot" style="background:var(--info)"></i><span class="eyebrow">Mitarbeiter</span></div>
+            <p class="value" id="stat-employees">&ndash;</p>
+            <p class="sub">im Inventar hinterlegt</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h2>Aktuelle Zuweisungen</h2></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Ger&auml;t</th><th>Mitarbeiter</th><th class="col-optional">Abteilung</th><th class="col-optional">Seit</th><th></th></tr></thead>
+              <tbody id="dashboard-assignments"></tbody>
+            </table>
+          </div>
         </div>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Inv.-Nr.</th><th>Name</th><th>Typ</th><th>Seriennummer</th><th>Status</th><th>Zugewiesen an</th><th>Standort</th><th>Kaufdatum</th><th>Preis</th><th></th></tr></thead>
-          <tbody id="devices-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
 
-  <!-- MITARBEITER -->
-  <div id="tab-employees" class="tab">
-    <div class="card">
-      <div class="card-header">
-        <h2>Mitarbeiter</h2>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input type="text" class="search-box" placeholder="Suchen…" oninput="searchEmployees(this.value)" />
-          <button class="btn btn-primary admin-only" onclick="openEmployeeModal()">+ Mitarbeiter hinzufügen</button>
-          <button class="btn btn-ghost admin-only" onclick="document.getElementById('employee-csv-input').click()">↑ Import (xlsx/csv)</button>
-          <button class="btn btn-ghost admin-only" onclick="downloadTemplate('employees')">⬇ Vorlage</button>
-          <input type="file" id="employee-csv-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="importCSV('employees', this)" />
+      <!-- ── GERÄTE ────────────────────────────────────────────────────── -->
+      <div id="tab-devices" class="tab">
+        <div class="page-head">
+          <div>
+            <h1>Ger&auml;te</h1>
+            <p>Bestand verwalten, zuweisen und zur&uuml;cknehmen</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-ghost admin-only" onclick="downloadTemplate('devices')">
+              <svg class="icon icon-sm"><use href="#i-download"/></svg> Vorlage
+            </button>
+            <button class="btn btn-ghost admin-only" onclick="document.getElementById('device-csv-input').click()">
+              <svg class="icon icon-sm"><use href="#i-upload"/></svg> Import
+            </button>
+            <button class="btn btn-accent admin-only" onclick="openDeviceModal()">
+              <svg class="icon icon-sm"><use href="#i-plus"/></svg> Ger&auml;t hinzuf&uuml;gen
+            </button>
+            <input type="file" id="device-csv-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="importCSV('devices', this)" />
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="filter-pills">
+              <button class="pill active" onclick="filterDevices('all', this)">Alle</button>
+              <button class="pill" onclick="filterDevices('verf&uuml;gbar', this)">Verf&uuml;gbar</button>
+              <button class="pill" onclick="filterDevices('vergeben', this)">Zugewiesen</button>
+              <button class="pill" onclick="filterDevices('defekt', this)">Defekt</button>
+            </div>
+            <div class="card-tools">
+              <span class="search-wrap">
+                <svg class="icon"><use href="#i-search"/></svg>
+                <input type="text" class="search-box" placeholder="Name, Inv.-Nr., Seriennummer&hellip;" oninput="searchDevices(this.value)" />
+              </span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Inv.-Nr.</th><th>Name</th><th class="col-optional">Typ</th>
+                <th class="col-optional">Seriennummer</th><th>Status</th><th class="col-narrow">Zugewiesen an</th>
+                <th class="col-optional">Standort</th><th class="col-optional">Kaufdatum</th>
+                <th class="col-optional">Preis</th><th></th>
+              </tr></thead>
+              <tbody id="devices-tbody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Vorname</th><th>Nachname</th><th>Abteilung</th><th>E-Mail</th><th>Standort</th><th>Geräte</th><th></th></tr></thead>
-          <tbody id="employees-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
 
-  <!-- STANDORTE -->
-  <div id="tab-locations" class="tab">
-    <div class="card">
-      <div class="card-header">
-        <h2>Standorte</h2>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input type="text" class="search-box" placeholder="Suchen…" oninput="searchLocations(this.value)" />
-          <button class="btn btn-primary admin-only" onclick="openLocationModal()">+ Standort hinzufügen</button>
+      <!-- ── MITARBEITER ───────────────────────────────────────────────── -->
+      <div id="tab-employees" class="tab">
+        <div class="page-head">
+          <div>
+            <h1>Mitarbeiter</h1>
+            <p>Empf&auml;nger von Inventar, nach Abteilung und Standort</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-ghost admin-only" onclick="downloadTemplate('employees')">
+              <svg class="icon icon-sm"><use href="#i-download"/></svg> Vorlage
+            </button>
+            <button class="btn btn-ghost admin-only" onclick="document.getElementById('employee-csv-input').click()">
+              <svg class="icon icon-sm"><use href="#i-upload"/></svg> Import
+            </button>
+            <button class="btn btn-accent admin-only" onclick="openEmployeeModal()">
+              <svg class="icon icon-sm"><use href="#i-plus"/></svg> Mitarbeiter hinzuf&uuml;gen
+            </button>
+            <input type="file" id="employee-csv-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="importCSV('employees', this)" />
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Alle Mitarbeiter</h2>
+            <div class="card-tools">
+              <span class="search-wrap">
+                <svg class="icon"><use href="#i-search"/></svg>
+                <input type="text" class="search-box" placeholder="Name, Abteilung, E-Mail&hellip;" oninput="searchEmployees(this.value)" />
+              </span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Vorname</th><th>Nachname</th><th class="col-optional">Abteilung</th>
+                <th class="col-optional">E-Mail</th><th class="col-optional">Standort</th><th>Ger&auml;te</th><th></th>
+              </tr></thead>
+              <tbody id="employees-tbody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Name</th><th>Adresse</th><th>Mitarbeiter</th><th>Geräte</th><th></th></tr></thead>
-          <tbody id="locations-tbody"></tbody>
-        </table>
+
+      <!-- ── STANDORTE ─────────────────────────────────────────────────── -->
+      <div id="tab-locations" class="tab">
+        <div class="page-head">
+          <div>
+            <h1>Standorte</h1>
+            <p>Zeile anklicken f&uuml;r Mitarbeiter und Ger&auml;te am Standort</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-accent admin-only" onclick="openLocationModal()">
+              <svg class="icon icon-sm"><use href="#i-plus"/></svg> Standort hinzuf&uuml;gen
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Alle Standorte</h2>
+            <div class="card-tools">
+              <span class="search-wrap">
+                <svg class="icon"><use href="#i-search"/></svg>
+                <input type="text" class="search-box" placeholder="Name oder Adresse&hellip;" oninput="searchLocations(this.value)" />
+              </span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th class="col-optional">Adresse</th><th>Mitarbeiter</th><th>Ger&auml;te</th><th></th></tr></thead>
+              <tbody id="locations-tbody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
-    </div>
+
+      <!-- ── VERLAUF ───────────────────────────────────────────────────── -->
+      <div id="tab-history" class="tab">
+        <div class="page-head">
+          <div>
+            <h1>Verlauf</h1>
+            <p>Jede Zuweisung und R&uuml;ckgabe, l&uuml;ckenlos protokolliert</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Zuweisungsverlauf</h2>
+            <div class="card-tools">
+              <span class="search-wrap">
+                <svg class="icon"><use href="#i-search"/></svg>
+                <input type="text" class="search-box" placeholder="Ger&auml;t, Mitarbeiter, Abteilung&hellip;" oninput="searchHistory(this.value)" />
+              </span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Ger&auml;t</th><th>Mitarbeiter</th><th class="col-optional">Abteilung</th>
+                <th>Zugewiesen am</th><th class="col-optional">Zur&uuml;ckgegeben am</th><th>Status</th>
+              </tr></thead>
+              <tbody id="history-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── BENUTZER ──────────────────────────────────────────────────── -->
+      <div id="tab-users" class="tab">
+        <div class="page-head">
+          <div>
+            <h1>Benutzer</h1>
+            <p>Zug&auml;nge zum Inventarsystem und deren Rollen</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-accent" onclick="openUserModal()">
+              <svg class="icon icon-sm"><use href="#i-plus"/></svg> Benutzer hinzuf&uuml;gen
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h2>Alle Benutzer</h2></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Benutzername</th><th>Rolle</th><th class="col-optional">Erstellt am</th><th></th></tr></thead>
+              <tbody id="users-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
   </div>
+</div>
 
-  <!-- VERLAUF -->
-  <div id="tab-history" class="tab">
-    <div class="card">
-      <div class="card-header">
-        <h2>Zuweisungsverlauf</h2>
-        <input type="text" class="search-box" placeholder="Suchen…" oninput="searchHistory(this.value)" />
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Gerät</th><th>Mitarbeiter</th><th>Abteilung</th><th>Zugewiesen am</th><th>Zurückgegeben am</th><th>Status</th></tr></thead>
-          <tbody id="history-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
+<!-- ═══ MODALS ════════════════════════════════════════════════════════════ -->
 
-  <!-- BENUTZER -->
-  <div id="tab-users" class="tab">
-    <div class="card">
-      <div class="card-header">
-        <h2>Benutzerverwaltung</h2>
-        <button class="btn btn-primary" onclick="openUserModal()">+ Benutzer hinzufügen</button>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Benutzername</th><th>Rolle</th><th>Erstellt am</th><th></th></tr></thead>
-          <tbody id="users-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-</main>
-
-<!-- MODALS -->
-
-<!-- Gerät Modal -->
 <div class="modal-overlay hidden" id="device-modal">
   <div class="modal">
     <div class="modal-header">
-      <h3 id="device-modal-title">Gerät hinzufügen</h3>
-      <button class="modal-close" onclick="closeModal('device-modal')">✕</button>
+      <h3 id="device-modal-title">Ger&auml;t hinzuf&uuml;gen</h3>
+      <button class="modal-close" onclick="closeModal('device-modal')" aria-label="Schlie&szlig;en"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="device-id" />
       <div class="form-row">
         <div class="form-group">
-          <label>Name *</label>
-          <input id="device-name" type="text" placeholder="z.B. MacBook Pro" />
+          <label for="device-name">Name *</label>
+          <input id="device-name" type="text" placeholder="z.B. MacBook Pro 14" />
         </div>
         <div class="form-group">
-          <label>Typ</label>
+          <label for="device-type">Typ</label>
           <input id="device-type" type="text" placeholder="z.B. Laptop" />
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Inventarnummer</label>
+          <label for="device-inventory-number">Inventarnummer</label>
           <input id="device-inventory-number" type="text" placeholder="wird automatisch vergeben" />
         </div>
         <div class="form-group">
-          <label>Seriennummer</label>
+          <label for="device-serial">Seriennummer</label>
           <input id="device-serial" type="text" placeholder="z.B. C02XY1234ABC" />
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Kaufdatum</label>
+          <label for="device-purchase-date">Kaufdatum</label>
           <input id="device-purchase-date" type="date" />
         </div>
         <div class="form-group">
-          <label>Kaufpreis (€)</label>
-          <input id="device-price" type="number" step="0.01" placeholder="0.00" />
+          <label for="device-price">Kaufpreis (&euro;)</label>
+          <input id="device-price" type="number" step="0.01" placeholder="0,00" />
         </div>
       </div>
       <div class="form-group" id="device-status-group" style="display:none">
-        <label>Status</label>
+        <label for="device-status">Status</label>
         <select id="device-status">
-          <option value="verfügbar">Verfügbar</option>
+          <option value="verf&uuml;gbar">Verf&uuml;gbar</option>
           <option value="vergeben">Vergeben</option>
           <option value="defekt">Defekt</option>
         </select>
       </div>
       <div class="form-group">
-        <label>Standort</label>
-        <select id="device-location-id">
-          <option value="">— Kein Standort —</option>
-        </select>
+        <label for="device-location-id">Standort</label>
+        <select id="device-location-id"><option value="">&mdash; Kein Standort &mdash;</option></select>
       </div>
       <div class="form-group">
-        <label>Notizen</label>
-        <textarea id="device-notes" placeholder="Optionale Anmerkungen…"></textarea>
+        <label for="device-notes">Notizen</label>
+        <textarea id="device-notes" placeholder="Optionale Anmerkungen&hellip;"></textarea>
       </div>
     </div>
     <div class="modal-footer">
@@ -524,38 +1109,35 @@
   </div>
 </div>
 
-<!-- Mitarbeiter Modal -->
 <div class="modal-overlay hidden" id="employee-modal">
   <div class="modal">
     <div class="modal-header">
-      <h3 id="employee-modal-title">Mitarbeiter hinzufügen</h3>
-      <button class="modal-close" onclick="closeModal('employee-modal')">✕</button>
+      <h3 id="employee-modal-title">Mitarbeiter hinzuf&uuml;gen</h3>
+      <button class="modal-close" onclick="closeModal('employee-modal')" aria-label="Schlie&szlig;en"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="employee-id" />
       <div class="form-row">
         <div class="form-group">
-          <label>Vorname *</label>
+          <label for="employee-first-name">Vorname *</label>
           <input id="employee-first-name" type="text" placeholder="z.B. Max" />
         </div>
         <div class="form-group">
-          <label>Nachname</label>
+          <label for="employee-last-name">Nachname</label>
           <input id="employee-last-name" type="text" placeholder="z.B. Mustermann" />
         </div>
       </div>
       <div class="form-group">
-        <label>Abteilung</label>
-        <input id="employee-department" type="text" placeholder="z.B. IT, Vertrieb…" />
+        <label for="employee-department">Abteilung</label>
+        <input id="employee-department" type="text" placeholder="z.B. IT, Vertrieb&hellip;" />
       </div>
       <div class="form-group">
-        <label>E-Mail</label>
-        <input id="employee-email" type="email" placeholder="name@firma.de" />
+        <label for="employee-email">E-Mail</label>
+        <input id="employee-email" type="email" placeholder="name@dachbleche24.de" />
       </div>
       <div class="form-group">
-        <label>Standort</label>
-        <select id="employee-location-id">
-          <option value="">— Kein Standort —</option>
-        </select>
+        <label for="employee-location-id">Standort</label>
+        <select id="employee-location-id"><option value="">&mdash; Kein Standort &mdash;</option></select>
       </div>
     </div>
     <div class="modal-footer">
@@ -565,28 +1147,25 @@
   </div>
 </div>
 
-<!-- Zuweisung Modal -->
 <div class="modal-overlay hidden" id="assign-modal">
   <div class="modal">
     <div class="modal-header">
-      <h3>Gerät zuweisen</h3>
-      <button class="modal-close" onclick="closeModal('assign-modal')">✕</button>
+      <h3>Ger&auml;t zuweisen</h3>
+      <button class="modal-close" onclick="closeModal('assign-modal')" aria-label="Schlie&szlig;en"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="assign-device-id" />
       <div class="form-group">
-        <label>Gerät</label>
-        <input id="assign-device-name" type="text" disabled style="background:var(--gray-50)" />
+        <label for="assign-device-name">Ger&auml;t</label>
+        <input id="assign-device-name" type="text" disabled />
       </div>
       <div class="form-group">
-        <label>Mitarbeiter *</label>
-        <select id="assign-employee-id">
-          <option value="">— Mitarbeiter wählen —</option>
-        </select>
+        <label for="assign-employee-id">Mitarbeiter *</label>
+        <select id="assign-employee-id"><option value="">&mdash; Mitarbeiter w&auml;hlen &mdash;</option></select>
       </div>
       <div class="form-group">
-        <label>Notizen</label>
-        <textarea id="assign-notes" placeholder="Optionale Anmerkungen zur Zuweisung…"></textarea>
+        <label for="assign-notes">Notizen</label>
+        <textarea id="assign-notes" placeholder="Optionale Anmerkungen zur Zuweisung&hellip;"></textarea>
       </div>
     </div>
     <div class="modal-footer">
@@ -596,28 +1175,27 @@
   </div>
 </div>
 
-<!-- Benutzer Modal -->
 <div class="modal-overlay hidden" id="user-modal">
   <div class="modal">
     <div class="modal-header">
-      <h3 id="user-modal-title">Benutzer hinzufügen</h3>
-      <button class="modal-close" onclick="closeModal('user-modal')">✕</button>
+      <h3 id="user-modal-title">Benutzer hinzuf&uuml;gen</h3>
+      <button class="modal-close" onclick="closeModal('user-modal')" aria-label="Schlie&szlig;en"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="user-id" />
       <div class="form-group" id="user-username-group">
-        <label>Benutzername *</label>
-        <input id="user-username" type="text" placeholder="Benutzername" autocomplete="off" />
+        <label for="user-username">Benutzername *</label>
+        <input id="user-username" type="text" placeholder="benutzername" autocomplete="off" />
       </div>
       <div class="form-group">
-        <label id="user-password-label">Passwort *</label>
-        <input id="user-password" type="password" placeholder="Passwort" autocomplete="new-password" />
+        <label id="user-password-label" for="user-password">Passwort *</label>
+        <input id="user-password" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="new-password" />
       </div>
       <div class="form-group">
-        <label>Rolle</label>
+        <label for="user-role">Rolle</label>
         <select id="user-role">
-          <option value="user">Benutzer</option>
-          <option value="admin">Administrator</option>
+          <option value="user">Benutzer (lesen und zuweisen)</option>
+          <option value="admin">Administrator (voller Zugriff)</option>
         </select>
       </div>
     </div>
@@ -628,28 +1206,25 @@
   </div>
 </div>
 
-<div id="toast"></div>
-
-<!-- STANDORT MODAL -->
 <div class="modal-overlay hidden" id="location-modal">
-  <div class="modal" style="max-width:480px">
+  <div class="modal">
     <div class="modal-header">
-      <h3 id="location-modal-title">Standort hinzufügen</h3>
-      <button class="modal-close" onclick="closeModal('location-modal')">✕</button>
+      <h3 id="location-modal-title">Standort hinzuf&uuml;gen</h3>
+      <button class="modal-close" onclick="closeModal('location-modal')" aria-label="Schlie&szlig;en"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="location-id" />
       <div class="form-group">
-        <label>Name *</label>
+        <label for="location-name">Name *</label>
         <input id="location-name" type="text" placeholder="z.B. Hauptsitz Hamburg" />
       </div>
       <div class="form-group">
-        <label>Adresse</label>
-        <input id="location-address" type="text" placeholder="z.B. Musterstraße 1, 20095 Hamburg" />
+        <label for="location-address">Adresse</label>
+        <input id="location-address" type="text" placeholder="z.B. Musterstra&szlig;e 1, 20095 Hamburg" />
       </div>
       <div class="form-group">
-        <label>Notizen</label>
-        <textarea id="location-notes" placeholder="Optionale Anmerkungen…"></textarea>
+        <label for="location-notes">Notizen</label>
+        <textarea id="location-notes" placeholder="Optionale Anmerkungen&hellip;"></textarea>
       </div>
     </div>
     <div class="modal-footer">
@@ -659,33 +1234,33 @@
   </div>
 </div>
 
-<!-- STANDORT DETAIL MODAL -->
 <div class="modal-overlay hidden" id="location-detail-modal">
-  <div class="modal" style="max-width:680px">
+  <div class="modal" style="max-width:700px">
     <div class="modal-header">
       <h3 id="location-detail-title">Standort</h3>
-      <button class="modal-close" onclick="closeModal('location-detail-modal')">✕</button>
+      <button class="modal-close" onclick="closeModal('location-detail-modal')" aria-label="Schlie&szlig;en"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body" id="location-detail-body"></div>
     <div class="modal-footer">
-      <button class="btn btn-primary" onclick="closeModal('location-detail-modal')">Schließen</button>
+      <button class="btn btn-primary" onclick="closeModal('location-detail-modal')">Schlie&szlig;en</button>
     </div>
   </div>
 </div>
 
-<!-- IMPORT RESULT MODAL -->
 <div class="modal-overlay hidden" id="import-modal">
-  <div class="modal" style="max-width:480px">
+  <div class="modal">
     <div class="modal-header">
       <h3>Import-Ergebnis</h3>
-      <button class="modal-close" onclick="closeModal('import-modal')">✕</button>
+      <button class="modal-close" onclick="closeModal('import-modal')" aria-label="Schlie&szlig;en"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body" id="import-modal-body"></div>
     <div class="modal-footer">
-      <button class="btn btn-primary" onclick="closeModal('import-modal')">Schließen</button>
+      <button class="btn btn-primary" onclick="closeModal('import-modal')">Schlie&szlig;en</button>
     </div>
   </div>
 </div>
+
+<div id="toast"></div>
 
 <script>
   // ─── STATE ───────────────────────────────────────────────────────────────────
@@ -693,18 +1268,46 @@
   let deviceFilter = 'all', deviceSearch = '', employeeSearch = '', historySearch = '', locationSearch = '';
   let currentUser = null;
 
-  // ─── TABS ────────────────────────────────────────────────────────────────────
-  function showTab(name) {
+  // ─── ESCAPING ────────────────────────────────────────────────────────────────
+  // Freitext aus der Datenbank landet über innerHTML im DOM – vorher entschärfen.
+  function esc(v) {
+    if (v == null) return '';
+    return String(v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  // Für Werte, die in einem onclick-String-Literal stehen.
+  function escArg(v) {
+    return esc(String(v == null ? '' : v).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+  }
+
+  // ─── NAVIGATION ──────────────────────────────────────────────────────────────
+  function showTab(name, el) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(b => {
+      b.classList.remove('active');
+      b.removeAttribute('aria-current');
+    });
     document.getElementById('tab-' + name).classList.add('active');
-    event.target.classList.add('active');
+    const btn = el || document.querySelector(`.nav-item[data-tab="${name}"]`);
+    if (btn) { btn.classList.add('active'); btn.setAttribute('aria-current', 'page'); }
+    closeNav();
+    window.scrollTo({ top: 0, behavior: 'instant' });
     if (name === 'dashboard') loadDashboard();
-    if (name === 'devices') renderDevices();
+    if (name === 'devices')   renderDevices();
     if (name === 'employees') renderEmployees();
     if (name === 'locations') loadLocations();
-    if (name === 'history') renderHistory();
-    if (name === 'users') loadUsers();
+    if (name === 'history')   loadHistory();
+    if (name === 'users')     loadUsers();
+  }
+
+  function openNav()  { document.body.classList.add('nav-open'); }
+  function closeNav() { document.body.classList.remove('nav-open'); }
+
+  function updateNavCounts() {
+    document.getElementById('nav-count-devices').textContent   = allDevices.length   || '';
+    document.getElementById('nav-count-employees').textContent = allEmployees.length || '';
+    document.getElementById('nav-count-locations').textContent = allLocations.length || '';
   }
 
   // ─── API ─────────────────────────────────────────────────────────────────────
@@ -729,9 +1332,8 @@
       currentUser = await api('GET', '/auth/me');
       document.getElementById('login-overlay').classList.add('hidden');
       document.getElementById('header-username').textContent = currentUser.username;
-      const roleEl = document.getElementById('header-role');
-      roleEl.textContent = currentUser.role === 'admin' ? 'Admin' : 'Benutzer';
-      roleEl.className = 'role-badge ' + currentUser.role;
+      document.getElementById('header-avatar').textContent = currentUser.username.slice(0, 2).toUpperCase();
+      document.getElementById('header-role').textContent = currentUser.role === 'admin' ? 'Administrator' : 'Benutzer';
       document.body.classList.add('role-' + currentUser.role);
       return true;
     } catch {
@@ -740,16 +1342,17 @@
     }
   }
 
+  function showLoginError(msg) {
+    const box = document.getElementById('login-error');
+    document.getElementById('login-error-text').textContent = msg;
+    box.classList.add('show');
+  }
+
   async function doLogin() {
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
-    const errEl = document.getElementById('login-error');
-    errEl.style.display = 'none';
-    if (!username || !password) {
-      errEl.textContent = 'Bitte alle Felder ausfüllen';
-      errEl.style.display = 'block';
-      return;
-    }
+    document.getElementById('login-error').classList.remove('show');
+    if (!username || !password) { showLoginError('Bitte Benutzername und Passwort eingeben'); return; }
     try {
       await api('POST', '/auth/login', { username, password });
       document.getElementById('login-password').value = '';
@@ -757,8 +1360,7 @@
       await checkAuth();
       await init();
     } catch (e) {
-      errEl.textContent = e.message;
-      errEl.style.display = 'block';
+      showLoginError(e.message);
     }
   }
 
@@ -778,13 +1380,13 @@
     el.textContent = msg;
     el.className = 'show ' + type;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.className = '', 3000);
+    toastTimer = setTimeout(() => el.className = '', 3500);
   }
 
   // ─── HELPERS ─────────────────────────────────────────────────────────────────
   function statusBadge(status) {
     const map = { 'verfügbar': 'green', 'vergeben': 'orange', 'defekt': 'red' };
-    return `<span class="badge badge-${map[status] || 'gray'}">${status}</span>`;
+    return `<span class="badge badge-${map[status] || 'gray'}">${esc(status)}</span>`;
   }
 
   function formatDate(str) {
@@ -797,35 +1399,73 @@
     return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(p);
   }
 
+  function icon(name, cls = 'icon icon-sm') {
+    return `<svg class="${cls}"><use href="#i-${name}"/></svg>`;
+  }
+
+  function emptyRow(cols, title, note, ico = 'inbox') {
+    return `<tr><td colspan="${cols}"><div class="empty">
+      ${icon(ico, 'icon')}
+      <p class="empty-title">${esc(title)}</p>
+      ${note ? `<p class="empty-note">${esc(note)}</p>` : ''}
+    </div></td></tr>`;
+  }
+
+  function dash() { return '<span class="faint">–</span>'; }
+
   // ─── DASHBOARD ───────────────────────────────────────────────────────────────
   async function loadDashboard() {
     const [stats, assignments] = await Promise.all([api('GET', '/stats'), api('GET', '/assignments')]);
-    document.getElementById('stat-total').textContent = stats.total_devices;
-    document.getElementById('stat-available').textContent = stats.available;
-    document.getElementById('stat-assigned').textContent = stats.assigned;
-    document.getElementById('stat-defect').textContent = stats.defect;
+
+    const total = Number(stats.total_devices) || 0;
+    const avail = Number(stats.available) || 0;
+    const assig = Number(stats.assigned) || 0;
+    const defec = Number(stats.defect) || 0;
+
+    document.getElementById('stat-total').textContent     = total;
+    document.getElementById('stat-available').textContent = avail;
+    document.getElementById('stat-assigned').textContent  = assig;
+    document.getElementById('stat-defect').textContent    = defec;
     document.getElementById('stat-employees').textContent = stats.total_employees;
+
+    document.getElementById('legend-available').textContent = avail;
+    document.getElementById('legend-assigned').textContent  = assig;
+    document.getElementById('legend-defect').textContent    = defec;
+
+    const pct = n => total > 0 ? (n / total * 100) : 0;
+    document.getElementById('meter-available').style.width = pct(avail) + '%';
+    document.getElementById('meter-assigned').style.width  = pct(assig) + '%';
+    document.getElementById('meter-defect').style.width    = pct(defec) + '%';
+
+    document.getElementById('hero-note').textContent = total === 0
+      ? 'Noch keine Geräte erfasst'
+      : `Geräte erfasst · ${Math.round(pct(assig))} % im Einsatz`;
+
+    document.getElementById('dashboard-subtitle').textContent =
+      'Stand ' + new Date().toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
 
     const active = assignments.filter(a => !a.returned_at);
     const tbody = document.getElementById('dashboard-assignments');
     if (!active.length) {
-      tbody.innerHTML = '<tr><td colspan="5"><div class="empty">Keine aktiven Zuweisungen</div></td></tr>';
+      tbody.innerHTML = emptyRow(5, 'Keine aktiven Zuweisungen', 'Weise unter „Geräte" ein Gerät einem Mitarbeiter zu.', 'assign');
       return;
     }
     tbody.innerHTML = active.map(a => `
       <tr>
-        <td><strong>${a.device_name}</strong>${a.device_type ? ` <span style="color:var(--gray-400);font-size:12px">${a.device_type}</span>` : ''}</td>
-        <td>${a.employee_name}</td>
-        <td>${a.department || '–'}</td>
-        <td>${formatDate(a.assigned_at)}</td>
-        <td><button class="btn btn-sm btn-warning" onclick="returnDevice(${a.id})">Zurückgeben</button></td>
-      </tr>
-    `).join('');
+        <td><strong>${esc(a.device_name)}</strong>${a.device_type ? ` <span class="faint">${esc(a.device_type)}</span>` : ''}</td>
+        <td>${esc(a.employee_name)}</td>
+        <td class="col-optional"><span class="dim">${esc(a.department) || '–'}</span></td>
+        <td class="col-optional"><span class="dim">${formatDate(a.assigned_at)}</span></td>
+        <td><div class="row-actions">
+          <button class="btn btn-sm btn-warning" onclick="returnDevice(${a.id})" title="Zurückgeben">${icon('return')} <span class="btn-label">Zurückgeben</span></button>
+        </div></td>
+      </tr>`).join('');
   }
 
   // ─── GERÄTE ──────────────────────────────────────────────────────────────────
   async function loadDevices() {
     allDevices = await api('GET', '/devices');
+    updateNavCounts();
     renderDevices();
   }
 
@@ -851,30 +1491,31 @@
 
     const tbody = document.getElementById('devices-tbody');
     if (!devices.length) {
-      tbody.innerHTML = '<tr><td colspan="10"><div class="empty">Keine Geräte gefunden</div></td></tr>';
+      tbody.innerHTML = allDevices.length
+        ? emptyRow(10, 'Keine Treffer', 'Andere Suche oder anderer Filter führt vielleicht weiter.', 'search')
+        : emptyRow(10, 'Noch keine Geräte', 'Lege das erste Gerät an oder importiere eine Liste.', 'device');
       return;
     }
     tbody.innerHTML = devices.map(d => `
       <tr>
-        <td><code style="font-size:12px;color:var(--primary-600);font-weight:600">${d.inventory_number || '–'}</code></td>
-        <td><strong>${d.name}</strong></td>
-        <td>${d.type || '–'}</td>
-        <td><code style="font-size:12px;color:var(--gray-600)">${d.serial_number || '–'}</code></td>
+        <td>${d.inventory_number ? `<span class="inv-no">${esc(d.inventory_number)}</span>` : dash()}</td>
+        <td><strong>${esc(d.name)}</strong></td>
+        <td class="col-optional"><span class="dim">${esc(d.type) || '–'}</span></td>
+        <td class="col-optional">${d.serial_number ? `<span class="serial">${esc(d.serial_number)}</span>` : dash()}</td>
         <td>${statusBadge(d.status)}</td>
-        <td>${d.assigned_to_name ? `<span style="color:var(--gray-700)">${d.assigned_to_name}</span>` : '<span style="color:var(--gray-400)">–</span>'}</td>
-        <td>${d.location_name ? `<span style="color:var(--gray-600)">${d.location_name}</span>` : '<span style="color:var(--gray-400)">–</span>'}</td>
-        <td>${formatDate(d.purchase_date)}</td>
-        <td>${formatPrice(d.purchase_price)}</td>
+        <td class="col-narrow">${d.assigned_to_name ? esc(d.assigned_to_name) : dash()}</td>
+        <td class="col-optional">${d.location_name ? `<span class="dim">${esc(d.location_name)}</span>` : dash()}</td>
+        <td class="col-optional"><span class="dim">${formatDate(d.purchase_date)}</span></td>
+        <td class="col-optional"><span class="num">${formatPrice(d.purchase_price)}</span></td>
         <td>
-          <div style="display:flex;gap:4px;justify-content:flex-end">
-            ${d.status === 'verfügbar' ? `<button class="btn btn-sm btn-success" onclick="openAssignModal(${d.id}, '${d.name.replace(/'/g,"\\'")}')">Zuweisen</button>` : ''}
-            ${d.status === 'vergeben' ? `<button class="btn btn-sm btn-warning" onclick="returnDevice(${d.assignment_id})">Zurück</button>` : ''}
-            <button class="btn btn-sm btn-ghost admin-only" onclick="openDeviceModal(${d.id})">✏️</button>
-            <button class="btn btn-sm btn-danger admin-only" onclick="deleteDevice(${d.id}, '${d.name.replace(/'/g,"\\'")}')">🗑️</button>
+          <div class="row-actions">
+            ${d.status === 'verfügbar' ? `<button class="btn btn-sm btn-success" onclick="openAssignModal(${d.id}, '${escArg(d.name)}')" title="Zuweisen">${icon('assign')} <span class="btn-label">Zuweisen</span></button>` : ''}
+            ${d.status === 'vergeben' && d.assignment_id ? `<button class="btn btn-sm btn-warning" onclick="returnDevice(${d.assignment_id})" title="Zurücknehmen">${icon('return')} <span class="btn-label">Zurück</span></button>` : ''}
+            <button class="btn btn-icon admin-only" onclick="openDeviceModal(${d.id})" title="Bearbeiten" aria-label="Bearbeiten">${icon('edit')}</button>
+            <button class="btn btn-icon danger admin-only" onclick="deleteDevice(${d.id}, '${escArg(d.name)}')" title="Löschen" aria-label="Löschen">${icon('trash')}</button>
           </div>
         </td>
-      </tr>
-    `).join('');
+      </tr>`).join('');
   }
 
   function openDeviceModal(id) {
@@ -931,10 +1572,15 @@
   // ─── MITARBEITER ─────────────────────────────────────────────────────────────
   async function loadEmployees() {
     allEmployees = await api('GET', '/employees');
+    updateNavCounts();
     renderEmployees();
   }
 
   function searchEmployees(q) { employeeSearch = q.toLowerCase(); renderEmployees(); }
+
+  function fullName(e) {
+    return [e.first_name || e.name || '', e.last_name || ''].filter(Boolean).join(' ').trim() || 'Unbenannt';
+  }
 
   function renderEmployees() {
     let employees = allEmployees;
@@ -947,32 +1593,33 @@
 
     const tbody = document.getElementById('employees-tbody');
     if (!employees.length) {
-      tbody.innerHTML = '<tr><td colspan="7"><div class="empty">Keine Mitarbeiter gefunden</div></td></tr>';
+      tbody.innerHTML = allEmployees.length
+        ? emptyRow(7, 'Keine Treffer', 'Andere Suche führt vielleicht weiter.', 'search')
+        : emptyRow(7, 'Noch keine Mitarbeiter', 'Lege den ersten Mitarbeiter an oder importiere eine Liste.', 'users');
       return;
     }
     tbody.innerHTML = employees.map(e => `
       <tr>
-        <td><strong>${e.first_name || e.name || '–'}</strong></td>
-        <td>${e.last_name || '–'}</td>
-        <td>${e.department || '–'}</td>
-        <td>${e.email ? `<a href="mailto:${e.email}" style="color:var(--primary)">${e.email}</a>` : '–'}</td>
-        <td>${e.location_name ? `<span style="color:var(--gray-600)">${e.location_name}</span>` : '<span style="color:var(--gray-400)">–</span>'}</td>
-        <td>${e.device_count > 0 ? `<span class="badge badge-blue">${e.device_count} Gerät${e.device_count > 1 ? 'e' : ''}</span>` : '<span style="color:var(--gray-400)">–</span>'}</td>
+        <td><strong>${esc(e.first_name || e.name) || dash()}</strong></td>
+        <td>${esc(e.last_name) || dash()}</td>
+        <td class="col-optional"><span class="dim">${esc(e.department) || '–'}</span></td>
+        <td class="col-optional">${e.email ? `<a href="mailto:${esc(e.email)}">${esc(e.email)}</a>` : dash()}</td>
+        <td class="col-optional">${e.location_name ? `<span class="dim">${esc(e.location_name)}</span>` : dash()}</td>
+        <td>${e.device_count > 0 ? `<span class="badge badge-blue badge-plain">${e.device_count} Gerät${e.device_count > 1 ? 'e' : ''}</span>` : dash()}</td>
         <td>
-          <div style="display:flex;gap:4px;justify-content:flex-end">
-            <button class="btn btn-sm btn-ghost admin-only" onclick="openEmployeeModal(${e.id})">✏️</button>
-            <button class="btn btn-sm btn-danger admin-only" onclick="deleteEmployee(${e.id}, '${e.name.replace(/'/g,"\\'")}')">🗑️</button>
+          <div class="row-actions">
+            <button class="btn btn-icon admin-only" onclick="openEmployeeModal(${e.id})" title="Bearbeiten" aria-label="Bearbeiten">${icon('edit')}</button>
+            <button class="btn btn-icon danger admin-only" onclick="deleteEmployee(${e.id}, '${escArg(fullName(e))}')" title="Löschen" aria-label="Löschen">${icon('trash')}</button>
           </div>
         </td>
-      </tr>
-    `).join('');
+      </tr>`).join('');
   }
 
   function openEmployeeModal(id) {
     const e = id ? allEmployees.find(x => x.id === id) : null;
     document.getElementById('employee-modal-title').textContent = e ? 'Mitarbeiter bearbeiten' : 'Mitarbeiter hinzufügen';
     document.getElementById('employee-id').value = e ? e.id : '';
-    document.getElementById('employee-first-name').value = e ? (e.first_name || '') : '';
+    document.getElementById('employee-first-name').value = e ? (e.first_name || e.name || '') : '';
     document.getElementById('employee-last-name').value = e ? (e.last_name || '') : '';
     document.getElementById('employee-department').value = e ? (e.department || '') : '';
     document.getElementById('employee-email').value = e ? (e.email || '') : '';
@@ -991,7 +1638,9 @@
       email: document.getElementById('employee-email').value.trim(),
       location_id: locVal ? parseInt(locVal) : null,
     };
-    if (!body.name) { toast('Name erforderlich', 'error'); return; }
+    // Der Server verlangt first_name – vorher wurde hier auf body.name geprüft,
+    // das es seit der Vorname/Nachname-Trennung nicht mehr gibt.
+    if (!body.first_name) { toast('Vorname erforderlich', 'error'); return; }
     try {
       if (id) await api('PUT', '/employees/' + id, body);
       else await api('POST', '/employees', body);
@@ -1019,7 +1668,7 @@
     const employees = await api('GET', '/employees');
     const sel = document.getElementById('assign-employee-id');
     sel.innerHTML = '<option value="">— Mitarbeiter wählen —</option>' +
-      employees.map(e => `<option value="${e.id}">${e.name}${e.department ? ' (' + e.department + ')' : ''}</option>`).join('');
+      employees.map(e => `<option value="${e.id}">${esc(fullName(e))}${e.department ? ' (' + esc(e.department) + ')' : ''}</option>`).join('');
     document.getElementById('assign-modal').classList.remove('hidden');
     setTimeout(() => sel.focus(), 50);
   }
@@ -1034,7 +1683,7 @@
       closeModal('assign-modal');
       await loadDevices();
       if (document.getElementById('tab-dashboard').classList.contains('active')) loadDashboard();
-      toast('Gerät zugewiesen ✓');
+      toast('Gerät zugewiesen');
     } catch (e) { toast(e.message, 'error'); }
   }
 
@@ -1064,25 +1713,25 @@
     );
     const tbody = document.getElementById('history-tbody');
     if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="6"><div class="empty">Keine Einträge</div></td></tr>';
+      tbody.innerHTML = allAssignments.length
+        ? emptyRow(6, 'Keine Treffer', 'Andere Suche führt vielleicht weiter.', 'search')
+        : emptyRow(6, 'Noch kein Verlauf', 'Sobald Geräte zugewiesen werden, entsteht hier das Protokoll.', 'clock');
       return;
     }
     tbody.innerHTML = list.map(a => `
       <tr>
-        <td><strong>${a.device_name}</strong>${a.device_type ? ` <span style="font-size:12px;color:var(--gray-400)">${a.device_type}</span>` : ''}</td>
-        <td>${a.employee_name}</td>
-        <td>${a.department || '–'}</td>
-        <td>${formatDate(a.assigned_at)}</td>
-        <td>${a.returned_at ? formatDate(a.returned_at) : '–'}</td>
+        <td><strong>${esc(a.device_name)}</strong>${a.device_type ? ` <span class="faint">${esc(a.device_type)}</span>` : ''}</td>
+        <td>${esc(a.employee_name)}</td>
+        <td class="col-optional"><span class="dim">${esc(a.department) || '–'}</span></td>
+        <td><span class="dim">${formatDate(a.assigned_at)}</span></td>
+        <td class="col-optional"><span class="dim">${a.returned_at ? formatDate(a.returned_at) : '–'}</span></td>
         <td>${a.returned_at
           ? '<span class="badge badge-gray">Zurückgegeben</span>'
-          : '<span class="badge badge-orange">Aktiv</span>'
-        }</td>
-      </tr>
-    `).join('');
+          : '<span class="badge badge-orange">Aktiv</span>'}</td>
+      </tr>`).join('');
   }
 
-  // ─── BENUTZERVERWALTUNG ───────────────────────────────────────────────────────
+  // ─── BENUTZERVERWALTUNG ──────────────────────────────────────────────────────
   async function loadUsers() {
     allUsers = await api('GET', '/users');
     renderUsers();
@@ -1091,22 +1740,21 @@
   function renderUsers() {
     const tbody = document.getElementById('users-tbody');
     if (!allUsers.length) {
-      tbody.innerHTML = '<tr><td colspan="4"><div class="empty">Keine Benutzer gefunden</div></td></tr>';
+      tbody.innerHTML = emptyRow(4, 'Keine Benutzer', 'Lege den ersten Zugang an.', 'shield');
       return;
     }
     tbody.innerHTML = allUsers.map(u => `
       <tr>
-        <td><strong>${u.username}</strong>${u.id === currentUser.id ? ' <span style="font-size:11px;color:var(--gray-400)">(ich)</span>' : ''}</td>
-        <td><span class="role-badge ${u.role}">${u.role === 'admin' ? 'Administrator' : 'Benutzer'}</span></td>
-        <td>${formatDate(u.created_at)}</td>
+        <td><strong>${esc(u.username)}</strong>${u.id === currentUser.id ? ' <span class="faint">(du)</span>' : ''}</td>
+        <td><span class="role-badge ${u.role === 'admin' ? 'admin' : 'user'}">${u.role === 'admin' ? 'Administrator' : 'Benutzer'}</span></td>
+        <td class="col-optional"><span class="dim">${formatDate(u.created_at)}</span></td>
         <td>
-          <div style="display:flex;gap:4px;justify-content:flex-end">
-            <button class="btn btn-sm btn-ghost" onclick="openUserModal(${u.id})">✏️</button>
-            ${u.id !== currentUser.id ? `<button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id}, '${u.username.replace(/'/g,"\\'")}')">🗑️</button>` : ''}
+          <div class="row-actions">
+            <button class="btn btn-icon" onclick="openUserModal(${u.id})" title="Bearbeiten" aria-label="Bearbeiten">${icon('edit')}</button>
+            ${u.id !== currentUser.id ? `<button class="btn btn-icon danger" onclick="deleteUser(${u.id}, '${escArg(u.username)}')" title="Löschen" aria-label="Löschen">${icon('trash')}</button>` : ''}
           </div>
         </td>
-      </tr>
-    `).join('');
+      </tr>`).join('');
   }
 
   function openUserModal(id) {
@@ -1161,18 +1809,22 @@
   });
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m => m.classList.add('hidden'));
+    if (e.key !== 'Escape') return;
+    const open = document.querySelectorAll('.modal-overlay:not(.hidden)');
+    if (open.length) { open.forEach(m => m.classList.add('hidden')); return; }
+    closeNav();
   });
 
   // ─── STANDORTE ───────────────────────────────────────────────────────────────
   function fillLocationSelect(selectId, selectedId) {
     const sel = document.getElementById(selectId);
     sel.innerHTML = '<option value="">— Kein Standort —</option>' +
-      allLocations.map(l => `<option value="${l.id}"${l.id === selectedId ? ' selected' : ''}>${l.name}</option>`).join('');
+      allLocations.map(l => `<option value="${l.id}"${l.id === selectedId ? ' selected' : ''}>${esc(l.name)}</option>`).join('');
   }
 
   async function loadLocations() {
     allLocations = await api('GET', '/locations');
+    updateNavCounts();
     renderLocations();
   }
 
@@ -1186,23 +1838,24 @@
     );
     const tbody = document.getElementById('locations-tbody');
     if (!locs.length) {
-      tbody.innerHTML = '<tr><td colspan="5"><div class="empty">Keine Standorte gefunden</div></td></tr>';
+      tbody.innerHTML = allLocations.length
+        ? emptyRow(5, 'Keine Treffer', 'Andere Suche führt vielleicht weiter.', 'search')
+        : emptyRow(5, 'Noch keine Standorte', 'Lege den ersten Standort an.', 'pin');
       return;
     }
     tbody.innerHTML = locs.map(l => `
       <tr style="cursor:pointer" onclick="showLocationDetails(${l.id})">
-        <td><strong>${l.name}</strong>${l.notes ? `<br><span style="font-size:12px;color:var(--gray-400)">${l.notes}</span>` : ''}</td>
-        <td>${l.address || '<span style="color:var(--gray-400)">–</span>'}</td>
-        <td>${l.employee_count > 0 ? `<span class="badge badge-blue">${l.employee_count}</span>` : '<span style="color:var(--gray-400)">0</span>'}</td>
-        <td>${l.device_count > 0 ? `<span class="badge badge-gray">${l.device_count}</span>` : '<span style="color:var(--gray-400)">0</span>'}</td>
+        <td><strong>${esc(l.name)}</strong>${l.notes ? `<br><span class="faint">${esc(l.notes)}</span>` : ''}</td>
+        <td class="col-optional">${l.address ? `<span class="dim">${esc(l.address)}</span>` : dash()}</td>
+        <td>${l.employee_count > 0 ? `<span class="badge badge-blue badge-plain">${l.employee_count}</span>` : '<span class="faint">0</span>'}</td>
+        <td>${l.device_count > 0 ? `<span class="badge badge-gray badge-plain">${l.device_count}</span>` : '<span class="faint">0</span>'}</td>
         <td onclick="event.stopPropagation()">
-          <div style="display:flex;gap:4px;justify-content:flex-end">
-            <button class="btn btn-sm btn-ghost admin-only" onclick="openLocationModal(${l.id})">✏️</button>
-            <button class="btn btn-sm btn-danger admin-only" onclick="deleteLocation(${l.id}, '${l.name.replace(/'/g,"\\'")}')">🗑️</button>
+          <div class="row-actions">
+            <button class="btn btn-icon admin-only" onclick="openLocationModal(${l.id})" title="Bearbeiten" aria-label="Bearbeiten">${icon('edit')}</button>
+            <button class="btn btn-icon danger admin-only" onclick="deleteLocation(${l.id}, '${escArg(l.name)}')" title="Löschen" aria-label="Löschen">${icon('trash')}</button>
           </div>
         </td>
-      </tr>
-    `).join('');
+      </tr>`).join('');
   }
 
   function openLocationModal(id) {
@@ -1247,30 +1900,47 @@
       const loc = await api('GET', '/locations/' + id + '/details');
       document.getElementById('location-detail-title').textContent = loc.name;
       const empRows = loc.employees.length
-        ? loc.employees.map(e => `<tr><td><strong>${e.name}</strong></td><td>${e.department || '–'}</td><td>${e.device_count > 0 ? `<span class="badge badge-blue">${e.device_count} Gerät${e.device_count > 1 ? 'e' : ''}</span>` : '–'}</td></tr>`).join('')
-        : '<tr><td colspan="3"><div class="empty" style="padding:12px">Keine Mitarbeiter</div></td></tr>';
+        ? loc.employees.map(e => `<tr>
+            <td><strong>${esc(fullName(e))}</strong></td>
+            <td><span class="dim">${esc(e.department) || '–'}</span></td>
+            <td>${e.device_count > 0 ? `<span class="badge badge-blue badge-plain">${e.device_count} Gerät${e.device_count > 1 ? 'e' : ''}</span>` : dash()}</td>
+          </tr>`).join('')
+        : `<tr><td colspan="3"><div class="empty" style="padding:22px"><p class="empty-note">Keine Mitarbeiter</p></div></td></tr>`;
       const devRows = loc.devices.length
-        ? loc.devices.map(d => `<tr><td><strong>${d.name}</strong>${d.type ? ` <span style="font-size:12px;color:var(--gray-400)">${d.type}</span>` : ''}</td><td>${statusBadge(d.status)}</td><td>${d.assigned_to_name || '–'}</td></tr>`).join('')
-        : '<tr><td colspan="3"><div class="empty" style="padding:12px">Keine Geräte</div></td></tr>';
+        ? loc.devices.map(d => `<tr>
+            <td><strong>${esc(d.name)}</strong>${d.type ? ` <span class="faint">${esc(d.type)}</span>` : ''}</td>
+            <td>${statusBadge(d.status)}</td>
+            <td>${d.assigned_to_name ? esc(d.assigned_to_name) : dash()}</td>
+          </tr>`).join('')
+        : `<tr><td colspan="3"><div class="empty" style="padding:22px"><p class="empty-note">Keine Geräte</p></div></td></tr>`;
       document.getElementById('location-detail-body').innerHTML = `
-        ${loc.address ? `<p style="color:var(--gray-600);margin-bottom:16px">📍 ${loc.address}</p>` : ''}
-        ${loc.notes ? `<p style="color:var(--gray-600);margin-bottom:16px;font-style:italic">${loc.notes}</p>` : ''}
-        <h4 style="font-size:14px;font-weight:600;margin-bottom:8px">Mitarbeiter (${loc.employees.length})</h4>
-        <div class="table-wrap" style="margin-bottom:20px">
-          <table><thead><tr><th>Name</th><th>Abteilung</th><th>Geräte</th></tr></thead><tbody>${empRows}</tbody></table>
+        ${loc.address ? `<p class="hero-note" style="display:flex;gap:8px;align-items:center">${icon('pin')} ${esc(loc.address)}</p>` : ''}
+        ${loc.notes ? `<p class="hero-note" style="font-style:italic">${esc(loc.notes)}</p>` : ''}
+        <div>
+          <h4>Mitarbeiter (${loc.employees.length})</h4>
+          <div class="table-wrap">
+            <table><thead><tr><th>Name</th><th>Abteilung</th><th>Geräte</th></tr></thead><tbody>${empRows}</tbody></table>
+          </div>
         </div>
-        <h4 style="font-size:14px;font-weight:600;margin-bottom:8px">Geräte (${loc.devices.length})</h4>
-        <div class="table-wrap">
-          <table><thead><tr><th>Name</th><th>Status</th><th>Zugewiesen an</th></tr></thead><tbody>${devRows}</tbody></table>
+        <div>
+          <h4>Geräte (${loc.devices.length})</h4>
+          <div class="table-wrap">
+            <table><thead><tr><th>Name</th><th>Status</th><th>Zugewiesen an</th></tr></thead><tbody>${devRows}</tbody></table>
+          </div>
         </div>`;
       document.getElementById('location-detail-modal').classList.remove('hidden');
     } catch (e) { toast(e.message, 'error'); }
   }
 
-  // ─── CSV IMPORT ──────────────────────────────────────────────────────────────
+  // ─── IMPORT ──────────────────────────────────────────────────────────────────
   const XLSX_TEMPLATES = {
-    devices:   [['Name','Typ','Seriennummer','Kaufdatum','Kaufpreis','Notizen'],['ThinkPad X1','Laptop','SN-001','2024-01-15',1299.00,''],['Dell U2722D','Monitor','SN-002','',429.00,'']],
-    employees: [['Name','Abteilung','E-Mail'],['Max Mustermann','IT','max@beispiel.de'],['Erika Musterfrau','HR','erika@beispiel.de']],
+    devices:   [['Name','Typ','Seriennummer','Kaufdatum','Kaufpreis','Notizen'],
+                ['ThinkPad X1','Laptop','SN-001','2024-01-15',1299.00,''],
+                ['Dell U2722D','Monitor','SN-002','',429.00,'']],
+    // Spaltennamen passend zum Server, der vorname/nachname erwartet.
+    employees: [['Vorname','Nachname','Abteilung','E-Mail'],
+                ['Max','Mustermann','IT','max@dachbleche24.de'],
+                ['Erika','Musterfrau','Vertrieb','erika@dachbleche24.de']],
   };
 
   function downloadTemplate(type) {
@@ -1298,17 +1968,22 @@
       const result = await api('POST', '/' + type + '/import', { csv });
       const body = document.getElementById('import-modal-body');
       const errorHtml = result.errors.length
-        ? `<div style="margin-top:12px"><strong>Fehler (${result.errors.length}):</strong><ul style="margin-top:6px;padding-left:20px">${result.errors.map(e => `<li style="font-size:13px;color:var(--danger)">${e}</li>`).join('')}</ul></div>`
+        ? `<div>
+             <h4 style="color:var(--danger)">Fehler (${result.errors.length})</h4>
+             <ul style="padding-left:18px;display:flex;flex-direction:column;gap:5px">
+               ${result.errors.map(e => `<li style="font-size:13px;color:var(--muted-foreground)">${esc(e)}</li>`).join('')}
+             </ul>
+           </div>`
         : '';
       body.innerHTML = `
-        <div style="display:flex;gap:16px;margin-bottom:4px">
-          <div style="flex:1;padding:16px;background:#f0fdf4;border-radius:8px;text-align:center">
-            <div style="font-size:28px;font-weight:700;color:var(--success)">${result.imported}</div>
-            <div style="font-size:13px;color:var(--gray-600)">Importiert</div>
+        <div class="stats-grid" style="grid-template-columns:1fr 1fr;gap:12px;margin:0">
+          <div class="stat-card" style="background:var(--background)">
+            <div class="stat-top"><i class="legend-dot" style="background:var(--success)"></i><span class="eyebrow">Importiert</span></div>
+            <p class="value">${result.imported}</p>
           </div>
-          <div style="flex:1;padding:16px;background:#fef9c3;border-radius:8px;text-align:center">
-            <div style="font-size:28px;font-weight:700;color:var(--warning)">${result.skipped}</div>
-            <div style="font-size:13px;color:var(--gray-600)">Übersprungen</div>
+          <div class="stat-card" style="background:var(--background)">
+            <div class="stat-top"><i class="legend-dot" style="background:var(--warning)"></i><span class="eyebrow">Übersprungen</span></div>
+            <p class="value">${result.skipped}</p>
           </div>
         </div>${errorHtml}`;
       document.getElementById('import-modal').classList.remove('hidden');
