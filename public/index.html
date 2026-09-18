@@ -15,178 +15,77 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="/design/tokens.css" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" />
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     /* ═══════════════════════════════════════════════════════════════════════
-       DESIGN TOKENS — übernommen aus DAKO (dako-web-production)
+       Farben, Radien, Hoehen und Schatten kommen aus design/tokens.css.
+       Hier stehen nur Werte, die es dort (noch) nicht gibt.
        ═══════════════════════════════════════════════════════════════════════ */
     :root {
-      /* ── Themenunabhängig ────────────────────────────────────────────────
-         Das Markenpanel (Sidebar, mobile Leiste, Login-Panel) bleibt in
-         DAKO auch im Hellmodus dunkel. Alles darin benutzt diese Werte. */
-      --shell-foreground:   #f5f6f8eb;
-      --shell-muted:        #f5f6f880;
-      --shell-faint:        #f5f6f880;
-      --shell-border:       #ffffff14;
-      --shell-hover:        #ffffff0a;
-      --shell-accent:       #e8702c;
-      --shell-accent-soft:  #e8702c29;
-      --shell-accent-strong:#f2a575;
+      /* Das Markenpanel ist in beiden Themen dunkel. Der helle Akzent
+         (#ba4c0c) haette darauf zu wenig Kontrast, also gelten dort
+         durchgaengig die dunklen Akzentwerte. */
+      --shell-accent:        #e8702c;
+      --shell-accent-soft:   rgba(232, 112, 44, 0.16);
+      --shell-accent-strong: #f2a575;
+      --shell-hover:         rgba(255, 255, 255, 0.04);
 
-      --brand-red:        #e30613;
+      --sidebar-w:      252px;
+      --dur:            .18s;
 
-      --radius-card:      14px;
-      --radius-inner:     10px;
-      --radius-btn:       12px;
-      --radius-input:     8px;
-      --radius-pill:      999px;
-
-      --ease-fluid:       cubic-bezier(.32, .72, 0, 1);
-      --dur:              .18s;
-      --sidebar-w:        252px;
-
-      /* ── HELL (entspricht DAKOs :root) ───────────────────────────────── */
-      --shell:            #171b21;
-      --background:       #f3f4f6;
-      --card:             #fff;
-      --card-raised:      #fff;
-      --surface-hover:    #14181d0a;
-      --surface-subtle:   #14181d05;
-      --hairline:         #14181d0d;
-      --track:            #14181d0d;
-      --thumb:            #14181d1f;
-      --thumb-hover:      #14181d38;
+      /* HELL */
+      --heading:          #14181d;
+      --faint-foreground: #5b6470e6;
+      --surface-hover:    rgba(20, 24, 29, 0.04);
+      --surface-subtle:   rgba(20, 24, 29, 0.02);
+      --hairline:         rgba(20, 24, 29, 0.05);
+      --track:            rgba(20, 24, 29, 0.05);
+      --thumb:            rgba(20, 24, 29, 0.12);
+      --thumb-hover:      rgba(20, 24, 29, 0.22);
       --sticky-head:      #f7f8f9;
       --sticky-hover:     #f4f5f7;
-
-      --foreground:       #14181d;
-      --heading:          #14181d;
-      --muted-foreground: #5b6470;
-      --faint-foreground: #5b6470e6;
-
-      --accent:           #ba4c0c;
-      --accent-strong:    #9a3f08;
-      --accent-soft:      #ba4c0c1a;
-      --accent-foreground:#fff;
-
-      --primary:          #14181d;
-      --primary-foreground:#fff;
+      --card-raised:      #ffffff;
       --primary-hover:    #20262e;
-
-      --success:          #1b6f47;
-      --warning:          #8a5a05;
-      --danger:           #b42318;
-      --info:             #1f6f8b;
-
-      --border:           #14181d14;
-      --border-strong:    #14181d29;
-      --border-hover:     #14181d47;
-
-      --shadow-sm:        0 1px 2px #14181d0a, 0 1px 1px #14181d05;
-      --shadow-card:      0 1px 2px #14181d0a, 0 10px 30px -18px #14181d2e;
-      --shadow-float:     0 2px 4px #14181d0d, 0 24px 48px -20px #14181d47;
-
       --picker-filter:    none;
-      color-scheme: light;
     }
 
-    /* ── DUNKEL ──────────────────────────────────────────────────────────
-       Zwei Wege wie bei DAKO: der Systemwunsch greift automatisch, solange
-       niemand ausdrücklich „hell" gewählt hat; data-theme schlägt beides. */
     @media (prefers-color-scheme: dark) {
       :root:not([data-theme="light"]) {
-        --shell:            #0b0e12;
-        --background:       #101317;
-        --card:             #171b21;
-        --card-raised:      #1c2128;
-        --surface-hover:    #ffffff0a;
-        --surface-subtle:   #ffffff06;
-        --hairline:         #ffffff0d;
-        --track:            #ffffff0d;
-        --thumb:            #ffffff1a;
-        --thumb-hover:      #ffffff33;
+        --heading:          #ffffff;
+        --faint-foreground: #9aa3adcc;
+        --surface-hover:    rgba(255, 255, 255, 0.04);
+        --surface-subtle:   rgba(255, 255, 255, 0.025);
+        --hairline:         rgba(255, 255, 255, 0.05);
+        --track:            rgba(255, 255, 255, 0.05);
+        --thumb:            rgba(255, 255, 255, 0.1);
+        --thumb-hover:      rgba(255, 255, 255, 0.2);
         --sticky-head:      #181b21;
         --sticky-hover:     #1c2027;
-
-        --foreground:       #eceff3;
-        --heading:          #fff;
-        --muted-foreground: #9aa3ad;
-        --faint-foreground: #9aa3adcc;
-
-        --accent:           #e8702c;
-        --accent-strong:    #f2a575;
-        --accent-soft:      #e8702c29;
-        --accent-foreground:#14181d;
-
-        --primary:          #eceff3;
-        --primary-foreground:#14181d;
-        --primary-hover:    #fff;
-
-        --success:          #4cc38a;
-        --warning:          #d9a441;
-        --danger:           #ef6d61;
-        --info:             #63b0cc;
-
-        --border:           #ffffff14;
-        --border-strong:    #ffffff26;
-        --border-hover:     #ffffff47;
-
-        --shadow-sm:        0 1px 2px #0000004d;
-        --shadow-card:      0 1px 2px #0000004d, 0 10px 30px -18px #0009;
-        --shadow-float:     0 2px 4px #0006, 0 24px 48px -20px #000000b3;
-
+        --card-raised:      #1c2128;
+        --primary-hover:    #ffffff;
         --picker-filter:    invert(.65);
-        color-scheme: dark;
       }
     }
 
     :root[data-theme="dark"] {
-      --shell:            #0b0e12;
-      --background:       #101317;
-      --card:             #171b21;
-      --card-raised:      #1c2128;
-      --surface-hover:    #ffffff0a;
-      --surface-subtle:   #ffffff06;
-      --hairline:         #ffffff0d;
-      --track:            #ffffff0d;
-      --thumb:            #ffffff1a;
-      --thumb-hover:      #ffffff33;
+      --heading:          #ffffff;
+      --faint-foreground: #9aa3adcc;
+      --surface-hover:    rgba(255, 255, 255, 0.04);
+      --surface-subtle:   rgba(255, 255, 255, 0.025);
+      --hairline:         rgba(255, 255, 255, 0.05);
+      --track:            rgba(255, 255, 255, 0.05);
+      --thumb:            rgba(255, 255, 255, 0.1);
+      --thumb-hover:      rgba(255, 255, 255, 0.2);
       --sticky-head:      #181b21;
       --sticky-hover:     #1c2027;
-
-      --foreground:       #eceff3;
-      --heading:          #fff;
-      --muted-foreground: #9aa3ad;
-      --faint-foreground: #9aa3adcc;
-
-      --accent:           #e8702c;
-      --accent-strong:    #f2a575;
-      --accent-soft:      #e8702c29;
-      --accent-foreground:#14181d;
-
-      --primary:          #eceff3;
-      --primary-foreground:#14181d;
-      --primary-hover:    #fff;
-
-      --success:          #4cc38a;
-      --warning:          #d9a441;
-      --danger:           #ef6d61;
-      --info:             #63b0cc;
-
-      --border:           #ffffff14;
-      --border-strong:    #ffffff26;
-      --border-hover:     #ffffff47;
-
-      --shadow-sm:        0 1px 2px #0000004d;
-      --shadow-card:      0 1px 2px #0000004d, 0 10px 30px -18px #0009;
-      --shadow-float:     0 2px 4px #0006, 0 24px 48px -20px #000000b3;
-
+      --card-raised:      #1c2128;
+      --primary-hover:    #ffffff;
       --picker-filter:    invert(.65);
-      color-scheme: dark;
     }
 
-    /* Im Markenpanel gelten die dunklen Werte unabhängig vom Thema.
+    /* Im Markenpanel gelten die dunklen Werte unabhaengig vom Thema.
        Durch das Umdefinieren hier erben alle Regeln darin automatisch. */
     .sidebar, .mobile-bar, .login-brand {
       --accent:           var(--shell-accent);
@@ -194,22 +93,24 @@
       --accent-strong:    var(--shell-accent-strong);
       --foreground:       var(--shell-foreground);
       --muted-foreground: var(--shell-muted);
-      --faint-foreground: var(--shell-faint);
+      --faint-foreground: var(--shell-muted);
       --border:           var(--shell-border);
-      --border-hover:     #ffffff47;
+      --border-hover:     rgba(255, 255, 255, 0.28);
       --surface-hover:    var(--shell-hover);
-      --heading:          #fff;
+      --heading:          #ffffff;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html { -webkit-text-size-adjust: 100%; }
+    html { -webkit-text-size-adjust: 100%; scrollbar-gutter: stable; scroll-behavior: smooth; }
 
     body {
       font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
       font-feature-settings: 'cv11', 'ss01';
       background: var(--background);
       color: var(--foreground);
+      font-size: 14px;
+      line-height: 1.5;
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
@@ -222,20 +123,43 @@
     ::-webkit-scrollbar-thumb { background: var(--thumb); border-radius: 99px; border: 2px solid transparent; background-clip: content-box; }
     ::-webkit-scrollbar-thumb:hover { background: var(--thumb-hover); background-clip: content-box; }
 
-    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+    :where(a, button, [tabindex], [role="button"]):focus-visible {
+      outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px;
+    }
+    /* Eingabefelder bekommen statt des Rahmens einen inneren Ring. */
+    input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; }
 
     .icon { width: 18px; height: 18px; flex-shrink: 0; stroke-width: 1.75; }
     .icon-sm { width: 15px; height: 15px; }
 
-    .mono { font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
-    .num  { font-variant-numeric: tabular-nums; }
+    h1, h2, h3 { text-wrap: balance; letter-spacing: -.015em; }
+
+    /* Alles, was verglichen, addiert oder abgelesen wird, laeuft in Mono. */
+    .num {
+      font-family: 'Geist Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -.01em;
+    }
 
     /* Overline / Eyebrow — DAKO: 11px · 500 · 1.76px tracking · uppercase */
     .eyebrow {
       font-size: 11px; font-weight: 500; line-height: 1.5;
-      letter-spacing: 1.76px; text-transform: uppercase;
+      letter-spacing: .12em; text-transform: uppercase;
       color: var(--muted-foreground);
     }
+
+    /* Sprunglink: ohne ihn sind es mit der Tastatur Dutzende Anschlaege
+       durch die Navigation bis zum ersten Inhalt, auf jeder Seite neu. */
+    .sprunglink {
+      position: absolute; left: 1rem; top: 1rem; z-index: 200;
+      transform: translateY(-150%);
+      background: var(--card); color: var(--foreground);
+      padding: 10px 16px; border-radius: var(--radius-control);
+      font-size: 14px; font-weight: 500; text-decoration: none;
+      box-shadow: 0 0 0 1px var(--border-strong), var(--shadow-float);
+      transition: transform .2s var(--ease-fluid);
+    }
+    .sprunglink:focus { transform: translateY(0); }
 
     /* ═══════════════════════════════════════════════════════════════════════
        AMBIENT GLOW
@@ -289,7 +213,7 @@
     .nav-section {
       padding: 16px 8px 6px;
       font-size: 10px; font-weight: 500; letter-spacing: 1.6px;
-      text-transform: uppercase; color: var(--shell-faint);
+      text-transform: uppercase; color: var(--shell-muted);
     }
     .nav-item {
       position: relative;
@@ -312,7 +236,8 @@
     .nav-item .icon { opacity: .9; }
     .nav-count {
       margin-left: auto; font-size: 11px; font-weight: 500;
-      color: var(--shell-faint); font-variant-numeric: tabular-nums;
+      color: var(--shell-muted);
+      font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums;
     }
     .nav-item.active .nav-count { color: var(--accent-strong); opacity: .75; }
 
@@ -322,8 +247,8 @@
       padding: 12px; display: flex; align-items: center; gap: 10px;
     }
     .avatar {
-      width: 32px; height: 32px; flex-shrink: 0;
-      border-radius: var(--radius-input);
+      width: var(--h-cell); height: var(--h-cell); flex-shrink: 0;
+      border-radius: var(--radius-control);
       background: var(--accent-soft); color: var(--accent-strong);
       display: grid; place-items: center;
       font-size: 12px; font-weight: 600; letter-spacing: .02em;
@@ -360,8 +285,8 @@
     main { flex: 1; width: 100%; max-width: 1360px; margin: 0 auto; padding: 32px 32px 64px; }
 
     .tab { display: none; }
-    .tab.active { display: block; animation: fade-up .3s var(--ease-fluid); }
-    @keyframes fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .tab.active { display: block; animation: fade-up .36s var(--ease-fluid) both; }
+    @keyframes fade-up { from { opacity: 0; transform: translateY(8px); } }
 
     /* ── PAGE HEAD ───────────────────────────────────────────────────────── */
     .page-head {
@@ -380,9 +305,8 @@
        ═══════════════════════════════════════════════════════════════════════ */
     .card {
       background: var(--card);
-      border: 1px solid var(--border);
       border-radius: var(--radius-card);
-      box-shadow: var(--shadow-card);
+      box-shadow: var(--shadow-card), 0 0 0 1px var(--border);
       overflow: hidden;
     }
     .card-header {
@@ -398,9 +322,8 @@
     .hero {
       position: relative; overflow: hidden;
       background: var(--card);
-      border: 1px solid var(--border);
       border-radius: var(--radius-card);
-      box-shadow: var(--shadow-card);
+      box-shadow: var(--shadow-card), 0 0 0 1px var(--border);
       padding: 26px 28px;
       display: grid; grid-template-columns: minmax(180px, 260px) 1fr;
       gap: 36px; align-items: center;
@@ -409,12 +332,13 @@
     .hero > *:not(.glow) { position: relative; z-index: 1; }
     .hero-figure { display: flex; flex-direction: column; gap: 9px; }
     .hero-value {
-      font-size: 52px; font-weight: 600; letter-spacing: -1.8px; line-height: 1;
+      font-family: 'Geist Mono', ui-monospace, monospace;
+      font-size: 48px; font-weight: 500; letter-spacing: -2.5px; line-height: 1;
       color: var(--heading); font-variant-numeric: tabular-nums;
     }
     .hero-note { font-size: 13px; color: var(--muted-foreground); }
 
-    .meter { display: flex; height: 10px; border-radius: var(--radius-pill); overflow: hidden; background: var(--track); gap: 2px; }
+    .meter { display: flex; height: 10px; border-radius: var(--radius-chip); overflow: hidden; background: var(--track); gap: 2px; }
     /* Die Breiten setzt loadDashboard() einmalig – kein Übergang auf width,
        das würde bei jedem Frame ein Reflow der ganzen Zeile auslösen. */
     .meter span { display: block; height: 100%; min-width: 0; }
@@ -425,7 +349,7 @@
     .legend { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 16px; }
     .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted-foreground); }
     .legend-dot { width: 8px; height: 8px; border-radius: 3px; flex-shrink: 0; }
-    .legend-item b { color: var(--foreground); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .legend-item b { color: var(--foreground); font-family: 'Geist Mono', ui-monospace, monospace; font-weight: 500; font-variant-numeric: tabular-nums; }
 
     /* ── DASHBOARD: STAT-KACHELN ─────────────────────────────────────────── */
     .stats-grid {
@@ -434,16 +358,17 @@
     }
     .stat-card {
       background: var(--card);
-      border: 1px solid var(--border);
       border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card), 0 0 0 1px var(--border);
       padding: 18px;
       display: flex; flex-direction: column; gap: 12px;
       transition: border-color var(--dur) var(--ease-fluid), transform var(--dur) var(--ease-fluid);
     }
-    .stat-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+    .stat-card:hover { box-shadow: var(--shadow-card), 0 0 0 1px var(--border-strong); transform: translateY(-1px); }
     .stat-top { display: flex; align-items: center; gap: 8px; }
     .stat-card .value {
-      font-size: 32px; font-weight: 600; letter-spacing: -1px; line-height: 1;
+      font-family: 'Geist Mono', ui-monospace, monospace;
+      font-size: 30px; font-weight: 500; letter-spacing: -1.4px; line-height: 1;
       color: var(--heading); font-variant-numeric: tabular-nums;
     }
     .stat-card .sub { font-size: 12px; color: var(--muted-foreground); }
@@ -457,9 +382,9 @@
       pointer-events: none; width: 15px; height: 15px;
     }
     .search-box {
-      width: 230px; padding: 8px 12px 8px 33px;
+      width: 230px; height: var(--h-control); padding: 0 12px 0 34px;
       background: var(--background); color: var(--foreground);
-      border: none; border-radius: var(--radius-input);
+      border: none; border-radius: var(--radius-control);
       box-shadow: inset 0 0 0 1px var(--border-strong);
       font-family: inherit; font-size: 13px; outline: none;
       transition: box-shadow var(--dur) var(--ease-fluid);
@@ -467,9 +392,9 @@
     .search-box::placeholder { color: var(--faint-foreground); }
     .search-box:focus { box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
 
-    .filter-pills { display: flex; gap: 4px; flex-wrap: wrap; padding: 3px; background: var(--background); border-radius: var(--radius-inner); }
+    .filter-pills { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; padding: 4px; background: var(--background); border-radius: var(--radius-inner); }
     .pill {
-      padding: 6px 13px; border-radius: 7px; border: none; background: none;
+      height: var(--h-cell); padding: 0 13px; border-radius: var(--radius-chip); border: none; background: none;
       font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer;
       color: var(--muted-foreground); white-space: nowrap;
       transition: background var(--dur) var(--ease-fluid), color var(--dur) var(--ease-fluid);
@@ -522,7 +447,7 @@
        ═══════════════════════════════════════════════════════════════════════ */
     .badge {
       display: inline-flex; align-items: center; gap: 6px;
-      padding: 3px 9px; border-radius: var(--radius-pill);
+      padding: 3px 9px; border-radius: var(--radius-chip);
       font-size: 11.5px; font-weight: 500; white-space: nowrap;
       border: 1px solid transparent;
     }
@@ -536,7 +461,7 @@
 
     .role-badge {
       display: inline-flex; align-items: center;
-      font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: var(--radius-pill);
+      font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: var(--radius-chip);
       border: 1px solid transparent;
     }
     .role-badge.admin { color: var(--accent-strong); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 34%, transparent); }
@@ -547,8 +472,9 @@
        ═══════════════════════════════════════════════════════════════════════ */
     .btn {
       display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-      padding: 8px 14px; border: 1px solid transparent; border-radius: var(--radius-btn);
-      font-family: inherit; font-size: 13px; font-weight: 500; line-height: 1.25;
+      height: var(--h-control); padding: 0 16px;
+      border: 1px solid transparent; border-radius: var(--radius-control);
+      font-family: inherit; font-size: 14px; font-weight: 500; line-height: 1.25;
       cursor: pointer; white-space: nowrap;
       transition: background var(--dur) var(--ease-fluid), border-color var(--dur) var(--ease-fluid),
                   color var(--dur) var(--ease-fluid), transform var(--dur) var(--ease-fluid);
@@ -560,7 +486,7 @@
     .btn-primary:hover { background: var(--primary-hover); }
 
     /* Akzent — die eine wichtigste Aktion pro Seite */
-    .btn-accent { background: var(--accent); color: var(--accent-foreground); font-weight: 600; box-shadow: var(--shadow-sm); }
+    .btn-accent { background: var(--accent); color: var(--accent-foreground); font-weight: 600; box-shadow: var(--shadow-accent); }
     .btn-accent:hover { background: #f07b3a; }
 
     .btn-ghost { background: transparent; color: var(--muted-foreground); border-color: var(--border); }
@@ -578,10 +504,10 @@
     .btn-danger { background: transparent; color: var(--danger); border-color: color-mix(in srgb, var(--danger) 26%, transparent); }
     .btn-danger:hover { background: color-mix(in srgb, var(--danger) 15%, transparent); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
 
-    .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 9px; }
+    .btn-sm { height: var(--h-cell-dense); padding: 0 10px; font-size: 13px; }
 
     .btn-icon {
-      width: 30px; height: 30px; padding: 0; border-radius: 9px;
+      width: var(--h-cell); height: var(--h-cell); padding: 0;
       background: transparent; color: var(--muted-foreground); border-color: transparent;
     }
     .btn-icon:hover { background: var(--surface-hover); color: var(--foreground); }
@@ -595,9 +521,9 @@
     .hint { font-size: 11.5px; color: var(--faint-foreground); }
 
     input, select, textarea {
-      width: 100%; padding: 9px 12px;
+      width: 100%; height: var(--h-control); padding: 0 12px;
       background: var(--card); color: var(--foreground);
-      border: none; border-radius: var(--radius-input);
+      border: none; border-radius: var(--radius-control);
       box-shadow: inset 0 0 0 1px var(--border-strong);
       font-family: inherit; font-size: 14px; line-height: 1.4;
       outline: none;
@@ -607,7 +533,7 @@
     input:hover, select:hover, textarea:hover { box-shadow: inset 0 0 0 1px var(--border-hover); }
     input:focus, select:focus, textarea:focus { box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
     input:disabled { color: var(--muted-foreground); background: var(--background); cursor: not-allowed; }
-    textarea { resize: vertical; min-height: 78px; }
+    textarea { height: auto; resize: vertical; min-height: 78px; padding: 10px 12px; }
     select {
       appearance: none; cursor: pointer; padding-right: 34px;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aa3ad' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
@@ -625,28 +551,28 @@
       background: #000000b3; backdrop-filter: blur(4px);
       display: flex; align-items: center; justify-content: center;
       padding: 16px; overflow-y: auto;
-      animation: fade-in .2s var(--ease-fluid);
+      animation: fade-in .16s var(--ease-fluid);
     }
     .modal-overlay.hidden { display: none; }
     @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
     .modal {
       background: var(--card);
-      border: 1px solid var(--border-strong);
-      border-radius: var(--radius-card);
-      box-shadow: var(--shadow-float);
+      border-radius: var(--radius-dialog);
+      box-shadow: var(--shadow-float), 0 0 0 1px var(--border-strong);
       width: 100%; max-width: 500px; margin: auto;
       overflow: hidden;
-      animation: modal-in .26s var(--ease-fluid);
+      animation: modal-in .24s var(--ease-fluid);
     }
-    @keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+    @keyframes modal-in { from { opacity: 0; transform: translateY(12px) scale(.985); } }
     .modal-header {
       padding: 18px 22px 15px; border-bottom: 1px solid var(--border);
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
     }
     .modal-header h3 { font-size: 16px; font-weight: 600; letter-spacing: -.2px; }
     .modal-close {
-      display: grid; place-items: center; width: 30px; height: 30px;
-      background: none; border: none; border-radius: 9px;
+      display: grid; place-items: center;
+      width: var(--h-cell); height: var(--h-cell);
+      background: none; border: none; border-radius: var(--radius-control);
       color: var(--muted-foreground); cursor: pointer;
       transition: background var(--dur) var(--ease-fluid), color var(--dur) var(--ease-fluid);
     }
@@ -680,7 +606,7 @@
       display: flex; align-items: center; gap: 10px;
       max-width: 340px; padding: 12px 16px;
       background: var(--card-raised); color: var(--foreground);
-      border: 1px solid var(--border-strong); border-radius: var(--radius-btn);
+      border: 1px solid var(--border-strong); border-radius: var(--radius-control);
       box-shadow: var(--shadow-float);
       font-size: 13.5px;
       transform: translateY(20px); opacity: 0; pointer-events: none;
@@ -713,7 +639,7 @@
       color: #fff; margin: 14px 0 16px;
     }
     .login-pitch p { font-size: 14px; line-height: 1.625; color: var(--shell-muted); }
-    .login-foot { font-size: 12px; color: var(--shell-faint); }
+    .login-foot { font-size: 12px; color: var(--shell-muted); }
 
     .login-panel { display: flex; align-items: center; justify-content: center; padding: 48px 24px; }
     .login-box { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 16px; }
@@ -725,7 +651,7 @@
       font-size: 13px; color: var(--danger);
       background: color-mix(in srgb, var(--danger) 12%, transparent);
       border: 1px solid color-mix(in srgb, var(--danger) 28%, transparent);
-      border-radius: var(--radius-input); padding: 9px 12px;
+      border-radius: var(--radius-control); padding: 9px 12px;
     }
     .login-error.show { display: flex; }
     .login-submit { padding: 11px; font-size: 14.5px; }
@@ -757,7 +683,7 @@
         box-shadow: var(--shadow-float);
       }
       body.nav-open .sidebar { transform: none; }
-      body.nav-open .scrim { display: block; animation: fade-in .2s var(--ease-fluid); }
+      body.nav-open .scrim { display: block; animation: fade-in .16s var(--ease-fluid); }
       .content { margin-left: 0; }
       .mobile-bar { display: flex; }
       main { padding: 20px 16px 56px; }
@@ -869,6 +795,8 @@
 </div>
 
 <!-- ═══ APP ═══════════════════════════════════════════════════════════════ -->
+<a class="sprunglink" href="#inhalt">Zum Inhalt springen</a>
+
 <div id="app">
 
   <div class="scrim" onclick="closeNav()"></div>
@@ -931,7 +859,7 @@
       <span class="eyebrow" style="margin-left:-4px">Inventar</span>
     </div>
 
-    <main>
+    <main id="inhalt" tabindex="-1">
 
       <!-- ── DASHBOARD ─────────────────────────────────────────────────── -->
       <div id="tab-dashboard" class="tab active">

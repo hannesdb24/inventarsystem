@@ -28,6 +28,9 @@ app.use(session({
 }));
 
 app.use(express.static(path.join(__dirname, 'public')));
+// Gemeinsame Designgrundlagen (design/tokens.css) — bewusst ausserhalb von
+// public/, damit sie eine Quelle bleiben und nicht ins Projekt kopiert wird.
+app.use('/design', express.static(path.join(__dirname, 'design')));
 
 // ─── DATENBANK ────────────────────────────────────────────────────────────────
 
