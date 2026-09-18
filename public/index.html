@@ -1368,11 +1368,20 @@
     </div>
     <div class="modal-body">
       <input type="hidden" id="assign-device-id" />
-      <div class="form-group">
+      <input type="hidden" id="assign-employee-fix-id" />
+      <div class="form-group" id="assign-device-fest">
         <label for="assign-device-name">Ger&auml;t</label>
         <input id="assign-device-name" type="text" disabled />
       </div>
-      <div class="form-group">
+      <div class="form-group" id="assign-device-wahl">
+        <label for="assign-device-select">Ger&auml;t *</label>
+        <select id="assign-device-select"><option value="">&mdash; Ger&auml;t w&auml;hlen &mdash;</option></select>
+      </div>
+      <div class="form-group" id="assign-employee-fest">
+        <label for="assign-employee-name">Mitarbeiter</label>
+        <input id="assign-employee-name" type="text" disabled />
+      </div>
+      <div class="form-group" id="assign-employee-wahl">
         <label for="assign-employee-id">Mitarbeiter *</label>
         <select id="assign-employee-id"><option value="">&mdash; Mitarbeiter w&auml;hlen &mdash;</option></select>
       </div>
@@ -1969,7 +1978,7 @@
             <td><span class="dim num">${esc(d.inventory_number) || '–'}</span></td>
             <td><span class="dim">${formatDate(d.assigned_at)}</span></td>
             <td><div class="row-actions">
-              <button class="btn btn-sm btn-warning admin-only" onclick="closeModal('employee-detail-modal'); returnDevice(${d.assignment_id}, '${escArg(d.name)}')" title="Zurücknehmen">${icon('return')} <span class="btn-label">Zurücknehmen</span></button>
+              <button class="btn btn-sm btn-warning admin-only" onclick="detailZurueckZu = ${emp.id}; closeModal('employee-detail-modal'); returnDevice(${d.assignment_id}, '${escArg(d.name)}')" title="Zurücknehmen">${icon('return')} <span class="btn-label">Zurücknehmen</span></button>
             </div></td>
           </tr>`).join('')
         : `<tr><td colspan="4"><div class="empty" style="padding:22px"><p class="empty-note">Kein Gerät zugewiesen</p></div></td></tr>`;
@@ -1987,7 +1996,12 @@
         </p>
         ${emp.email ? `<p class="hero-note"><a href="mailto:${esc(emp.email)}">${esc(emp.email)}</a></p>` : ''}
         <div>
-          <h4>Aktuelle Geräte (${emp.devices.length})</h4>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <h4 style="margin:0">Aktuelle Geräte (${emp.devices.length})</h4>
+            <button class="btn btn-sm btn-primary admin-only"
+              onclick="closeModal('employee-detail-modal'); openAssignForEmployee(${emp.id}, '${escArg(fullName(emp))}')"
+              title="Gerät zuweisen">${icon('assign')} <span class="btn-label">Gerät zuweisen</span></button>
+          </div>
           <div class="table-wrap">
             <table><thead><tr><th>Gerät</th><th>Inv.-Nr.</th><th>Seit</th><th></th></tr></thead><tbody>${geraeteRows}</tbody></table>
           </div>
@@ -2066,7 +2080,24 @@
   }
 
   // ─── ZUWEISUNGEN ─────────────────────────────────────────────────────────────
+  // Das Zuweisen geht in beide Richtungen: vom Gerät aus ist das Gerät fest und
+  // der Mitarbeiter wird gewählt, vom Mitarbeiter aus umgekehrt.
+  let assignModus = 'geraet';
+  // Merkt sich, aus wessen Detailansicht heraus gehandelt wurde, um sie danach
+  // wieder zu öffnen statt den Nutzer im Nichts stehen zu lassen.
+  let detailZurueckZu = null;
+
+  function assignFelder(modus) {
+    assignModus = modus;
+    const vomGeraet = modus === 'geraet';
+    document.getElementById('assign-device-fest').classList.toggle('hidden', !vomGeraet);
+    document.getElementById('assign-device-wahl').classList.toggle('hidden', vomGeraet);
+    document.getElementById('assign-employee-fest').classList.toggle('hidden', vomGeraet);
+    document.getElementById('assign-employee-wahl').classList.toggle('hidden', !vomGeraet);
+  }
+
   async function openAssignModal(deviceId, deviceName) {
+    assignFelder('geraet');
     document.getElementById('assign-device-id').value = deviceId;
     document.getElementById('assign-device-name').value = deviceName;
     document.getElementById('assign-notes').value = '';
@@ -2079,17 +2110,44 @@
     setTimeout(() => sel.focus(), 50);
   }
 
+  async function openAssignForEmployee(employeeId, employeeName) {
+    detailZurueckZu = employeeId;
+    assignFelder('mitarbeiter');
+    document.getElementById('assign-employee-fix-id').value = employeeId;
+    document.getElementById('assign-employee-name').value = employeeName || '';
+    document.getElementById('assign-notes').value = '';
+
+    const sel = document.getElementById('assign-device-select');
+    sel.innerHTML = '<option value="">— Gerät wählen —</option>';
+    try {
+      const frei = (await api('GET', '/devices')).filter(d => d.status === 'verfügbar');
+      if (!frei.length) { toast('Kein verfügbares Gerät vorhanden', 'error'); detailZurueckZu = null; showEmployeeDetails(employeeId); return; }
+      sel.innerHTML = '<option value="">— Gerät wählen —</option>' +
+        frei.map(d => `<option value="${d.id}">${esc(d.name)}${d.inventory_number ? ' (' + esc(d.inventory_number) + ')' : ''}</option>`).join('');
+    } catch (e) { toast(e.message, 'error'); detailZurueckZu = null; return; }
+    document.getElementById('assign-modal').classList.remove('hidden');
+    setTimeout(() => sel.focus(), 50);
+  }
+
   async function saveAssignment() {
-    const device_id = document.getElementById('assign-device-id').value;
-    const employee_id = document.getElementById('assign-employee-id').value;
+    const vomGeraet = assignModus === 'geraet';
+    const device_id = vomGeraet
+      ? document.getElementById('assign-device-id').value
+      : document.getElementById('assign-device-select').value;
+    const employee_id = vomGeraet
+      ? document.getElementById('assign-employee-id').value
+      : document.getElementById('assign-employee-fix-id').value;
     const notes = document.getElementById('assign-notes').value.trim();
+    if (!device_id) { toast('Bitte Gerät wählen', 'error'); return; }
     if (!employee_id) { toast('Bitte Mitarbeiter wählen', 'error'); return; }
+    const zurueck = detailZurueckZu;
     try {
       await api('POST', '/assignments', { device_id: +device_id, employee_id: +employee_id, notes });
       closeModal('assign-modal');
-      await loadDevices();
+      await Promise.all([loadDevices(), loadEmployees()]);
       if (document.getElementById('tab-dashboard').classList.contains('active')) loadDashboard();
       toast('Gerät zugewiesen');
+      if (zurueck) showEmployeeDetails(zurueck);
     } catch (e) { toast(e.message, 'error'); }
   }
 
@@ -2117,6 +2175,7 @@
     const notiz = document.getElementById('return-storage-note').value.trim();
     if (!locVal) { toast('Standort erforderlich', 'error'); return; }
     if (!notiz) { toast('Aufbewahrung erforderlich', 'error'); return; }
+    const zurueck = detailZurueckZu;
     try {
       await api('PUT', '/assignments/' + assignmentId + '/return', {
         location_id: parseInt(locVal),
@@ -2125,6 +2184,7 @@
       closeModal('return-modal');
       await Promise.all([loadDevices(), loadEmployees(), loadDashboard()]);
       toast('Gerät zurückgenommen');
+      if (zurueck) showEmployeeDetails(zurueck);
     } catch (e) { toast(e.message, 'error'); }
   }
 
@@ -2236,6 +2296,7 @@
   // ─── MODAL ───────────────────────────────────────────────────────────────────
   function closeModal(id) {
     if (id === 'confirm-modal') return closeConfirm(false);
+    if (id === 'assign-modal' || id === 'return-modal') detailZurueckZu = null;
     document.getElementById(id).classList.add('hidden');
   }
 
