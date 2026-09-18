@@ -32,7 +32,7 @@
       --shell-accent-strong: #f2a575;
       --shell-hover:         rgba(255, 255, 255, 0.04);
 
-      --sidebar-w:      252px;
+      --sidebar-w:      256px;
       --dur:            .18s;
 
       /* HELL */
@@ -129,8 +129,8 @@
     /* Eingabefelder bekommen statt des Rahmens einen inneren Ring. */
     input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; }
 
-    .icon { width: 18px; height: 18px; flex-shrink: 0; stroke-width: 1.75; }
-    .icon-sm { width: 15px; height: 15px; }
+    .icon { width: 20px; height: 20px; flex-shrink: 0; stroke-width: 1.5; }
+    .icon-sm { width: 16px; height: 16px; }
 
     h1, h2, h3 { text-wrap: balance; letter-spacing: -.015em; }
 
@@ -177,7 +177,7 @@
     .wordmark {
       display: inline-flex; align-items: baseline;
       font-weight: 700; letter-spacing: -.03em; line-height: 1;
-      white-space: nowrap; font-size: 20px; color: var(--heading);
+      white-space: nowrap; font-size: 19px; color: var(--heading);
     }
     .wordmark .w-main { color: currentColor; }
     .wordmark .w-24   { color: var(--brand-red); }
@@ -221,12 +221,13 @@
       width: 100%; padding: 9px 12px;
       border: none; background: none; cursor: pointer;
       border-radius: var(--radius-inner);
-      font-family: inherit; font-size: 14px; font-weight: 500;
+      font-family: inherit; font-size: 13.5px; font-weight: 500;
       color: var(--shell-muted); text-align: left;
       transition: background var(--dur) var(--ease-fluid), color var(--dur) var(--ease-fluid);
     }
-    .nav-item:hover { background: var(--surface-hover); color: var(--shell-foreground); }
-    .nav-item.active { background: var(--accent-soft); color: var(--accent-strong); }
+    .nav-item:hover { background: rgba(255, 255, 255, .05); color: var(--shell-foreground); }
+    .nav-item.active { background: rgba(255, 255, 255, .09); color: #fff; }
+    .nav-item.active .icon { color: var(--shell-accent); opacity: 1; }
     .nav-item.active::before {
       content: ''; position: absolute; left: -12px; top: 50%;
       transform: translateY(-50%);
@@ -239,7 +240,7 @@
       color: var(--shell-muted);
       font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums;
     }
-    .nav-item.active .nav-count { color: var(--accent-strong); opacity: .75; }
+    .nav-item.active .nav-count { color: rgba(245, 246, 248, .7); }
 
     .sidebar-foot {
       position: relative; z-index: 1;
@@ -282,7 +283,7 @@
       margin-left: var(--sidebar-w);
       display: flex; flex-direction: column;
     }
-    main { flex: 1; width: 100%; max-width: 1360px; margin: 0 auto; padding: 32px 32px 64px; }
+    main { flex: 1; width: 100%; max-width: 1152px; padding: 36px 36px 64px; }
 
     .tab { display: none; }
     .tab.active { display: block; animation: fade-up .36s var(--ease-fluid) both; }
@@ -291,13 +292,13 @@
     /* ── PAGE HEAD ───────────────────────────────────────────────────────── */
     .page-head {
       display: flex; align-items: flex-end; justify-content: space-between;
-      gap: 20px; flex-wrap: wrap; margin-bottom: 24px;
+      gap: 20px; flex-wrap: wrap; margin-bottom: 28px;
     }
     .page-head h1 {
-      font-size: 28px; font-weight: 600; letter-spacing: -.5px;
+      font-size: 26px; font-weight: 600; letter-spacing: -.02em;
       line-height: 1.15; color: var(--heading);
     }
-    .page-head p { font-size: 14px; color: var(--muted-foreground); margin-top: 5px; }
+    .page-head p { font-size: 14px; color: var(--muted-foreground); margin-top: 6px; }
     .page-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
     /* ═══════════════════════════════════════════════════════════════════════
@@ -315,7 +316,7 @@
       display: flex; align-items: center; justify-content: space-between;
       gap: 12px; flex-wrap: wrap;
     }
-    .card-header h2 { font-size: 14px; font-weight: 600; letter-spacing: -.1px; }
+    .card-header h2 { font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
     .card-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
     /* ── DASHBOARD: HERO ─────────────────────────────────────────────────── */
@@ -333,10 +334,10 @@
     .hero-figure { display: flex; flex-direction: column; gap: 9px; }
     .hero-value {
       font-family: 'Geist Mono', ui-monospace, monospace;
-      font-size: 48px; font-weight: 500; letter-spacing: -2.5px; line-height: 1;
+      font-size: 30px; font-weight: 600; letter-spacing: -.03em; line-height: 1;
       color: var(--heading); font-variant-numeric: tabular-nums;
     }
-    .hero-note { font-size: 13px; color: var(--muted-foreground); }
+    .hero-note { font-size: 14px; color: var(--muted-foreground); }
 
     .meter { display: flex; height: 10px; border-radius: var(--radius-chip); overflow: hidden; background: var(--track); gap: 2px; }
     /* Die Breiten setzt loadDashboard() einmalig – kein Übergang auf width,
@@ -347,7 +348,7 @@
     .meter .m-defect    { background: var(--danger); }
 
     .legend { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 16px; }
-    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted-foreground); }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted-foreground); }
     .legend-dot { width: 8px; height: 8px; border-radius: 3px; flex-shrink: 0; }
     .legend-item b { color: var(--foreground); font-family: 'Geist Mono', ui-monospace, monospace; font-weight: 500; font-variant-numeric: tabular-nums; }
 
@@ -368,7 +369,7 @@
     .stat-top { display: flex; align-items: center; gap: 8px; }
     .stat-card .value {
       font-family: 'Geist Mono', ui-monospace, monospace;
-      font-size: 30px; font-weight: 500; letter-spacing: -1.4px; line-height: 1;
+      font-size: 30px; font-weight: 600; letter-spacing: -.03em; line-height: 1;
       color: var(--heading); font-variant-numeric: tabular-nums;
     }
     .stat-card .sub { font-size: 12px; color: var(--muted-foreground); }
@@ -390,41 +391,71 @@
       transition: box-shadow var(--dur) var(--ease-fluid);
     }
     .search-box::placeholder { color: var(--faint-foreground); }
-    .search-box:focus { box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
+    .search-box:focus { box-shadow: inset 0 0 0 1.5px var(--accent); }
 
-    .filter-pills { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; padding: 4px; background: var(--background); border-radius: var(--radius-inner); }
+    .filter-pills { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    /* Segment-Reiter: gewaehlt = accent-soft mit 1,5px Akzent-Innenring,
+       ungewaehlt = Kartenflaeche mit Hairline. Wie jede Auswahl im Haus. */
     .pill {
-      height: var(--h-cell); padding: 0 13px; border-radius: var(--radius-chip); border: none; background: none;
+      height: var(--h-cell); padding: 0 13px;
+      border-radius: var(--radius-control); border: none;
+      background: var(--card); color: var(--muted-foreground);
+      box-shadow: inset 0 0 0 1px var(--border);
       font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer;
-      color: var(--muted-foreground); white-space: nowrap;
-      transition: background var(--dur) var(--ease-fluid), color var(--dur) var(--ease-fluid);
+      white-space: nowrap;
+      transition: background var(--dur) var(--ease-fluid), color var(--dur) var(--ease-fluid),
+                  box-shadow var(--dur) var(--ease-fluid);
     }
-    .pill:hover { color: var(--foreground); }
-    .pill.active { background: var(--card-raised); color: var(--foreground); box-shadow: var(--shadow-sm); }
+    .pill:hover { color: var(--foreground); box-shadow: inset 0 0 0 1px var(--border-hover); }
+    .pill[aria-selected="true"] {
+      background: var(--accent-soft); color: var(--accent-strong); font-weight: 600;
+      box-shadow: inset 0 0 0 1.5px var(--accent);
+    }
 
     /* ═══════════════════════════════════════════════════════════════════════
        TABELLEN
        ═══════════════════════════════════════════════════════════════════════ */
     .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
     th {
       padding: 11px 16px; text-align: left; white-space: nowrap;
-      font-size: 10.5px; font-weight: 500; letter-spacing: 1.2px; text-transform: uppercase;
+      font-size: 11px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase;
       color: var(--muted-foreground);
       background: var(--surface-subtle);
       border-bottom: 1px solid var(--border);
     }
     td {
-      padding: 13px 13px; border-bottom: 1px solid var(--hairline);
+      padding: 12px; border-bottom: 1px solid var(--hairline);
       vertical-align: middle; color: var(--foreground);
     }
-    th { padding-left: 13px; padding-right: 13px; }
+    th { padding-left: 12px; padding-right: 12px; }
+    th.zahl, td.zahl { text-align: right; }
+    td.zahl { font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
     tbody tr { transition: background var(--dur) var(--ease-fluid); }
     tbody tr:hover td { background: var(--surface-subtle); }
     tr:last-child td { border-bottom: none; }
     td .dim { color: var(--muted-foreground); }
     td .faint { color: var(--faint-foreground); }
     .row-actions { display: flex; gap: 4px; justify-content: flex-end; align-items: center; }
+
+    /* Anklickbare Listen fuehren ueber einen echten Knopf in der ersten Zelle,
+       nicht ueber onclick auf der Zeile - sonst ist die Liste mit der Tastatur
+       unerreichbar. */
+    th.zeilenkopf {
+      text-align: left; text-transform: none; letter-spacing: normal;
+      font-size: 14px; font-weight: 400; background: none;
+      border-bottom: 1px solid var(--hairline); padding: 12px;
+      display: table-cell; vertical-align: middle;
+    }
+    tr:last-child th.zeilenkopf { border-bottom: none; }
+    tbody tr:hover th.zeilenkopf { background: var(--surface-subtle); }
+    .zeilenlink {
+      display: block; background: none; border: none; padding: 0;
+      font-family: inherit; font-size: 14px; font-weight: 600;
+      color: var(--foreground); text-align: left; cursor: pointer;
+    }
+    .zeilenlink:hover { color: var(--accent-strong); text-decoration: underline; }
+    th.zeilenkopf .faint { display: block; font-size: 12px; margin-top: 2px; }
 
     /* Aktionsspalte bleibt beim horizontalen Scrollen breiter Tabellen stehen.
        Sticky braucht eine deckende Fläche – daher feste Farben statt Alpha. */
@@ -448,20 +479,20 @@
     .badge {
       display: inline-flex; align-items: center; gap: 6px;
       padding: 3px 9px; border-radius: var(--radius-chip);
-      font-size: 11.5px; font-weight: 500; white-space: nowrap;
+      font-size: 12px; font-weight: 500; white-space: nowrap;
       border: 1px solid transparent;
     }
     .badge::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
     .badge-plain::before { display: none; }
-    .badge-green  { color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); border-color: color-mix(in srgb, var(--success) 26%, transparent); }
-    .badge-orange { color: var(--accent-strong); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 34%, transparent); }
-    .badge-red    { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); border-color: color-mix(in srgb, var(--danger) 26%, transparent); }
-    .badge-blue   { color: var(--info); background: color-mix(in srgb, var(--info) 14%, transparent); border-color: color-mix(in srgb, var(--info) 26%, transparent); }
+    .badge-green  { color: var(--success); background: color-mix(in srgb, var(--success) 10%, transparent); border-color: color-mix(in srgb, var(--success) 22%, transparent); }
+    .badge-orange { color: var(--accent-strong); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 22%, transparent); }
+    .badge-red    { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); border-color: color-mix(in srgb, var(--danger) 22%, transparent); }
+    .badge-blue   { color: var(--info); background: color-mix(in srgb, var(--info) 10%, transparent); border-color: color-mix(in srgb, var(--info) 22%, transparent); }
     .badge-gray   { color: var(--muted-foreground); background: var(--track); border-color: var(--border); }
 
     .role-badge {
       display: inline-flex; align-items: center;
-      font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: var(--radius-chip);
+      font-size: 12px; font-weight: 500; padding: 3px 9px; border-radius: var(--radius-chip);
       border: 1px solid transparent;
     }
     .role-badge.admin { color: var(--accent-strong); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 34%, transparent); }
@@ -479,7 +510,8 @@
       transition: background var(--dur) var(--ease-fluid), border-color var(--dur) var(--ease-fluid),
                   color var(--dur) var(--ease-fluid), transform var(--dur) var(--ease-fluid);
     }
-    .btn:active { transform: translateY(1px); }
+    .btn:active { transform: scale(.98); }
+    .btn:disabled, .btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
 
     /* Primär — hell auf dunkel, exakt wie DAKOs Login-Button */
     .btn-primary { background: var(--primary); color: var(--primary-foreground); box-shadow: var(--shadow-sm); }
@@ -504,7 +536,7 @@
     .btn-danger { background: transparent; color: var(--danger); border-color: color-mix(in srgb, var(--danger) 26%, transparent); }
     .btn-danger:hover { background: color-mix(in srgb, var(--danger) 15%, transparent); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
 
-    .btn-sm { height: var(--h-cell-dense); padding: 0 10px; font-size: 13px; }
+    .btn-sm { height: var(--h-cell); padding: 0 12px; font-size: 13px; }
 
     .btn-icon {
       width: var(--h-cell); height: var(--h-cell); padding: 0;
@@ -531,8 +563,8 @@
     }
     input::placeholder, textarea::placeholder { color: var(--faint-foreground); }
     input:hover, select:hover, textarea:hover { box-shadow: inset 0 0 0 1px var(--border-hover); }
-    input:focus, select:focus, textarea:focus { box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
-    input:disabled { color: var(--muted-foreground); background: var(--background); cursor: not-allowed; }
+    input:focus, select:focus, textarea:focus { box-shadow: inset 0 0 0 1.5px var(--accent); }
+    input:disabled, select:disabled, textarea:disabled { color: var(--muted-foreground); background: var(--background); cursor: not-allowed; }
     textarea { height: auto; resize: vertical; min-height: 78px; padding: 10px 12px; }
     select {
       appearance: none; cursor: pointer; padding-right: 34px;
@@ -548,7 +580,7 @@
        ═══════════════════════════════════════════════════════════════════════ */
     .modal-overlay {
       position: fixed; inset: 0; z-index: 1000;
-      background: #000000b3; backdrop-filter: blur(4px);
+      background: color-mix(in srgb, var(--shell) 40%, transparent); backdrop-filter: blur(2px);
       display: flex; align-items: center; justify-content: center;
       padding: 16px; overflow-y: auto;
       animation: fade-in .16s var(--ease-fluid);
@@ -568,7 +600,7 @@
       padding: 18px 22px 15px; border-bottom: 1px solid var(--border);
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
     }
-    .modal-header h3 { font-size: 16px; font-weight: 600; letter-spacing: -.2px; }
+    .modal-header h3 { font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
     .modal-close {
       display: grid; place-items: center;
       width: var(--h-cell); height: var(--h-cell);
@@ -638,14 +670,14 @@
       font-size: 34px; font-weight: 600; line-height: 1.15; letter-spacing: -.51px;
       color: #fff; margin: 14px 0 16px;
     }
-    .login-pitch p { font-size: 14px; line-height: 1.625; color: var(--shell-muted); }
+    .login-pitch p { font-size: 14px; line-height: 1.5; color: var(--shell-muted); }
     .login-foot { font-size: 12px; color: var(--shell-muted); }
 
     .login-panel { display: flex; align-items: center; justify-content: center; padding: 48px 24px; }
     .login-box { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 16px; }
     .login-box .wordmark { display: none; margin-bottom: 4px; }
     .login-title { font-size: 22px; font-weight: 600; letter-spacing: -.3px; color: var(--heading); }
-    .login-sub { font-size: 13.5px; color: var(--muted-foreground); margin-top: 4px; }
+    .login-sub { font-size: 14px; color: var(--muted-foreground); margin-top: 6px; }
     .login-error {
       display: none; align-items: center; gap: 8px;
       font-size: 13px; color: var(--danger);
@@ -654,7 +686,7 @@
       border-radius: var(--radius-control); padding: 9px 12px;
     }
     .login-error.show { display: flex; }
-    .login-submit { padding: 11px; font-size: 14.5px; }
+    .login-submit { height: var(--h-control-lg); font-size: 15px; border-radius: var(--radius-control-lg); }
     .login-legal { font-size: 12px; color: var(--faint-foreground); line-height: 1.5; }
 
     /* ═══════════════════════════════════════════════════════════════════════
@@ -667,7 +699,7 @@
        ═══════════════════════════════════════════════════════════════════════ */
     @media (max-width: 1180px) {
       .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      main { padding: 28px 24px 56px; }
+      main { padding: 24px 24px 56px; }
     }
 
     @media (max-width: 1023px) {
@@ -686,7 +718,7 @@
       body.nav-open .scrim { display: block; animation: fade-in .16s var(--ease-fluid); }
       .content { margin-left: 0; }
       .mobile-bar { display: flex; }
-      main { padding: 20px 16px 56px; }
+      main { padding: 20px 20px 56px; }
       .hero { grid-template-columns: 1fr; gap: 22px; padding: 22px; }
       .hero-value { font-size: 42px; }
       .page-head h1 { font-size: 23px; }
@@ -787,7 +819,7 @@
         <label for="login-password">Passwort</label>
         <input id="login-password" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" />
       </div>
-      <p id="login-error" class="login-error"><svg class="icon icon-sm"><use href="#i-alert"/></svg><span id="login-error-text"></span></p>
+      <p id="login-error" class="login-error"><svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-alert"/></svg><span id="login-error-text"></span></p>
       <button class="btn btn-primary login-submit" onclick="doLogin()">Anmelden</button>
       <p class="login-legal">Kein Konto? Ein Administrator legt dich im Benutzerbereich an.</p>
     </div>
@@ -811,26 +843,26 @@
 
     <nav class="sidebar-nav">
       <button class="nav-item active" data-tab="dashboard" onclick="showTab('dashboard', this)">
-        <svg class="icon"><use href="#i-dashboard"/></svg> Dashboard
+        <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-dashboard"/></svg> Dashboard
       </button>
 
       <p class="nav-section">Bestand</p>
       <button class="nav-item" data-tab="devices" onclick="showTab('devices', this)">
-        <svg class="icon"><use href="#i-device"/></svg> Ger&auml;te <span class="nav-count" id="nav-count-devices"></span>
+        <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-device"/></svg> Ger&auml;te <span class="nav-count" id="nav-count-devices"></span>
       </button>
       <button class="nav-item" data-tab="employees" onclick="showTab('employees', this)">
-        <svg class="icon"><use href="#i-users"/></svg> Mitarbeiter <span class="nav-count" id="nav-count-employees"></span>
+        <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-users"/></svg> Mitarbeiter <span class="nav-count" id="nav-count-employees"></span>
       </button>
       <button class="nav-item" data-tab="locations" onclick="showTab('locations', this)">
-        <svg class="icon"><use href="#i-pin"/></svg> Standorte <span class="nav-count" id="nav-count-locations"></span>
+        <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-pin"/></svg> Standorte <span class="nav-count" id="nav-count-locations"></span>
       </button>
 
       <p class="nav-section">Protokoll</p>
       <button class="nav-item" data-tab="history" onclick="showTab('history', this)">
-        <svg class="icon"><use href="#i-clock"/></svg> Verlauf
+        <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-clock"/></svg> Verlauf
       </button>
       <button class="nav-item admin-only" data-tab="users" onclick="showTab('users', this)">
-        <svg class="icon"><use href="#i-shield"/></svg> Benutzer
+        <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-shield"/></svg> Benutzer
       </button>
     </nav>
 
@@ -841,10 +873,10 @@
         <span class="sidebar-role" id="header-role"></span>
       </div>
       <button class="btn btn-icon" id="theme-toggle" onclick="cycleTheme()">
-        <svg class="icon"><use href="#i-monitor" id="theme-icon"/></svg>
+        <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-monitor" id="theme-icon"/></svg>
       </button>
       <button class="btn btn-icon" onclick="doLogout()" title="Abmelden" aria-label="Abmelden">
-        <svg class="icon"><use href="#i-logout"/></svg>
+        <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-logout"/></svg>
       </button>
     </div>
   </aside>
@@ -853,7 +885,7 @@
 
     <div class="mobile-bar">
       <button class="btn btn-icon" onclick="openNav()" aria-label="Men&uuml; &ouml;ffnen">
-        <svg class="icon"><use href="#i-menu"/></svg>
+        <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg>
       </button>
       <span class="wordmark" style="font-size:17px"><span class="w-main">dachbleche</span><span class="w-24">24</span></span>
       <span class="eyebrow" style="margin-left:-4px">Inventar</span>
@@ -934,13 +966,13 @@
           </div>
           <div class="page-actions">
             <button class="btn btn-ghost admin-only" onclick="downloadTemplate('devices')">
-              <svg class="icon icon-sm"><use href="#i-download"/></svg> Vorlage
+              <svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-download"/></svg> Vorlage
             </button>
             <button class="btn btn-ghost admin-only" onclick="document.getElementById('device-csv-input').click()">
-              <svg class="icon icon-sm"><use href="#i-upload"/></svg> Import
+              <svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-upload"/></svg> Import
             </button>
             <button class="btn btn-accent admin-only" onclick="openDeviceModal()">
-              <svg class="icon icon-sm"><use href="#i-plus"/></svg> Ger&auml;t hinzuf&uuml;gen
+              <svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg> Ger&auml;t hinzuf&uuml;gen
             </button>
             <input type="file" id="device-csv-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="importCSV('devices', this)" />
           </div>
@@ -948,15 +980,15 @@
 
         <div class="card">
           <div class="card-header">
-            <div class="filter-pills">
-              <button class="pill active" onclick="filterDevices('all', this)">Alle</button>
-              <button class="pill" onclick="filterDevices('verf&uuml;gbar', this)">Verf&uuml;gbar</button>
-              <button class="pill" onclick="filterDevices('vergeben', this)">Zugewiesen</button>
-              <button class="pill" onclick="filterDevices('defekt', this)">Defekt</button>
+            <div class="filter-pills" role="tablist" aria-label="Ger&auml;te nach Status filtern">
+              <button class="pill" role="tab" aria-selected="true"  onclick="filterDevices('all', this)">Alle</button>
+              <button class="pill" role="tab" aria-selected="false" onclick="filterDevices('verf&uuml;gbar', this)">Verf&uuml;gbar</button>
+              <button class="pill" role="tab" aria-selected="false" onclick="filterDevices('vergeben', this)">Zugewiesen</button>
+              <button class="pill" role="tab" aria-selected="false" onclick="filterDevices('defekt', this)">Defekt</button>
             </div>
             <div class="card-tools">
               <span class="search-wrap">
-                <svg class="icon"><use href="#i-search"/></svg>
+                <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-search"/></svg>
                 <input type="text" class="search-box" placeholder="Name, Inv.-Nr., Seriennummer&hellip;" oninput="searchDevices(this.value)" />
               </span>
             </div>
@@ -967,7 +999,7 @@
                 <th>Inv.-Nr.</th><th>Name</th><th class="col-optional">Typ</th>
                 <th class="col-optional">Seriennummer</th><th>Status</th><th class="col-narrow">Zugewiesen an</th>
                 <th class="col-optional">Standort</th><th class="col-optional">Kaufdatum</th>
-                <th class="col-optional">Preis</th><th></th>
+                <th class="col-optional zahl">Preis</th><th></th>
               </tr></thead>
               <tbody id="devices-tbody"></tbody>
             </table>
@@ -984,13 +1016,13 @@
           </div>
           <div class="page-actions">
             <button class="btn btn-ghost admin-only" onclick="downloadTemplate('employees')">
-              <svg class="icon icon-sm"><use href="#i-download"/></svg> Vorlage
+              <svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-download"/></svg> Vorlage
             </button>
             <button class="btn btn-ghost admin-only" onclick="document.getElementById('employee-csv-input').click()">
-              <svg class="icon icon-sm"><use href="#i-upload"/></svg> Import
+              <svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-upload"/></svg> Import
             </button>
             <button class="btn btn-accent admin-only" onclick="openEmployeeModal()">
-              <svg class="icon icon-sm"><use href="#i-plus"/></svg> Mitarbeiter hinzuf&uuml;gen
+              <svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg> Mitarbeiter hinzuf&uuml;gen
             </button>
             <input type="file" id="employee-csv-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="importCSV('employees', this)" />
           </div>
@@ -1001,7 +1033,7 @@
             <h2>Alle Mitarbeiter</h2>
             <div class="card-tools">
               <span class="search-wrap">
-                <svg class="icon"><use href="#i-search"/></svg>
+                <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-search"/></svg>
                 <input type="text" class="search-box" placeholder="Name, Abteilung, E-Mail&hellip;" oninput="searchEmployees(this.value)" />
               </span>
             </div>
@@ -1027,7 +1059,7 @@
           </div>
           <div class="page-actions">
             <button class="btn btn-accent admin-only" onclick="openLocationModal()">
-              <svg class="icon icon-sm"><use href="#i-plus"/></svg> Standort hinzuf&uuml;gen
+              <svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg> Standort hinzuf&uuml;gen
             </button>
           </div>
         </div>
@@ -1037,7 +1069,7 @@
             <h2>Alle Standorte</h2>
             <div class="card-tools">
               <span class="search-wrap">
-                <svg class="icon"><use href="#i-search"/></svg>
+                <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-search"/></svg>
                 <input type="text" class="search-box" placeholder="Name oder Adresse&hellip;" oninput="searchLocations(this.value)" />
               </span>
             </div>
@@ -1065,7 +1097,7 @@
             <h2>Zuweisungsverlauf</h2>
             <div class="card-tools">
               <span class="search-wrap">
-                <svg class="icon"><use href="#i-search"/></svg>
+                <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-search"/></svg>
                 <input type="text" class="search-box" placeholder="Ger&auml;t, Mitarbeiter, Abteilung&hellip;" oninput="searchHistory(this.value)" />
               </span>
             </div>
@@ -1091,7 +1123,7 @@
           </div>
           <div class="page-actions">
             <button class="btn btn-accent" onclick="openUserModal()">
-              <svg class="icon icon-sm"><use href="#i-plus"/></svg> Benutzer hinzuf&uuml;gen
+              <svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg> Benutzer hinzuf&uuml;gen
             </button>
           </div>
         </div>
@@ -1117,7 +1149,7 @@
   <div class="modal">
     <div class="modal-header">
       <h3 id="device-modal-title">Ger&auml;t hinzuf&uuml;gen</h3>
-      <button class="modal-close" onclick="closeModal('device-modal')" aria-label="Schlie&szlig;en"><svg class="icon"><use href="#i-close"/></svg></button>
+      <button class="modal-close" onclick="closeModal('device-modal')" aria-label="Schlie&szlig;en"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="device-id" />
@@ -1179,7 +1211,7 @@
   <div class="modal">
     <div class="modal-header">
       <h3 id="employee-modal-title">Mitarbeiter hinzuf&uuml;gen</h3>
-      <button class="modal-close" onclick="closeModal('employee-modal')" aria-label="Schlie&szlig;en"><svg class="icon"><use href="#i-close"/></svg></button>
+      <button class="modal-close" onclick="closeModal('employee-modal')" aria-label="Schlie&szlig;en"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="employee-id" />
@@ -1217,7 +1249,7 @@
   <div class="modal">
     <div class="modal-header">
       <h3>Ger&auml;t zuweisen</h3>
-      <button class="modal-close" onclick="closeModal('assign-modal')" aria-label="Schlie&szlig;en"><svg class="icon"><use href="#i-close"/></svg></button>
+      <button class="modal-close" onclick="closeModal('assign-modal')" aria-label="Schlie&szlig;en"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="assign-device-id" />
@@ -1245,7 +1277,7 @@
   <div class="modal">
     <div class="modal-header">
       <h3 id="user-modal-title">Benutzer hinzuf&uuml;gen</h3>
-      <button class="modal-close" onclick="closeModal('user-modal')" aria-label="Schlie&szlig;en"><svg class="icon"><use href="#i-close"/></svg></button>
+      <button class="modal-close" onclick="closeModal('user-modal')" aria-label="Schlie&szlig;en"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="user-id" />
@@ -1276,7 +1308,7 @@
   <div class="modal">
     <div class="modal-header">
       <h3 id="location-modal-title">Standort hinzuf&uuml;gen</h3>
-      <button class="modal-close" onclick="closeModal('location-modal')" aria-label="Schlie&szlig;en"><svg class="icon"><use href="#i-close"/></svg></button>
+      <button class="modal-close" onclick="closeModal('location-modal')" aria-label="Schlie&szlig;en"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="location-id" />
@@ -1304,7 +1336,7 @@
   <div class="modal" style="max-width:700px">
     <div class="modal-header">
       <h3 id="location-detail-title">Standort</h3>
-      <button class="modal-close" onclick="closeModal('location-detail-modal')" aria-label="Schlie&szlig;en"><svg class="icon"><use href="#i-close"/></svg></button>
+      <button class="modal-close" onclick="closeModal('location-detail-modal')" aria-label="Schlie&szlig;en"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body" id="location-detail-body"></div>
     <div class="modal-footer">
@@ -1317,11 +1349,25 @@
   <div class="modal">
     <div class="modal-header">
       <h3>Import-Ergebnis</h3>
-      <button class="modal-close" onclick="closeModal('import-modal')" aria-label="Schlie&szlig;en"><svg class="icon"><use href="#i-close"/></svg></button>
+      <button class="modal-close" onclick="closeModal('import-modal')" aria-label="Schlie&szlig;en"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body" id="import-modal-body"></div>
     <div class="modal-footer">
       <button class="btn btn-primary" onclick="closeModal('import-modal')">Schlie&szlig;en</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h3 id="confirm-title">Best&auml;tigen</h3>
+      <button class="modal-close" onclick="closeConfirm(false)" aria-label="Schlie&szlig;en"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body"><p id="confirm-text" style="color:var(--muted-foreground);line-height:1.5"></p></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeConfirm(false)">Abbrechen</button>
+      <button class="btn btn-primary" id="confirm-ok" onclick="closeConfirm(true)">Best&auml;tigen</button>
     </div>
   </div>
 </div>
@@ -1511,7 +1557,7 @@
   }
 
   function icon(name, cls = 'icon icon-sm') {
-    return `<svg class="${cls}"><use href="#i-${name}"/></svg>`;
+    return `<svg class="${cls}" aria-hidden="true" focusable="false"><use href="#i-${name}"/></svg>`;
   }
 
   function emptyRow(cols, title, note, ico = 'inbox') {
@@ -1582,8 +1628,8 @@
 
   function filterDevices(f, el) {
     deviceFilter = f;
-    document.querySelectorAll('.filter-pills .pill').forEach(p => p.classList.remove('active'));
-    el.classList.add('active');
+    document.querySelectorAll('.filter-pills .pill').forEach(p => p.setAttribute('aria-selected', 'false'));
+    el.setAttribute('aria-selected', 'true');
     renderDevices();
   }
 
@@ -1617,7 +1663,7 @@
         <td class="col-narrow">${d.assigned_to_name ? esc(d.assigned_to_name) : dash()}</td>
         <td class="col-optional">${d.location_name ? `<span class="dim">${esc(d.location_name)}</span>` : dash()}</td>
         <td class="col-optional"><span class="dim">${formatDate(d.purchase_date)}</span></td>
-        <td class="col-optional"><span class="num">${formatPrice(d.purchase_price)}</span></td>
+        <td class="col-optional zahl">${formatPrice(d.purchase_price)}</td>
         <td>
           <div class="row-actions">
             ${d.status === 'verfügbar' ? `<button class="btn btn-sm btn-success" onclick="openAssignModal(${d.id}, '${escArg(d.name)}')" title="Zuweisen">${icon('assign')} <span class="btn-label">Zuweisen</span></button>` : ''}
@@ -1672,7 +1718,7 @@
   }
 
   async function deleteDevice(id, name) {
-    if (!confirm(`Gerät "${name}" wirklich löschen?`)) return;
+    if (!await confirmDialog({ titel: 'Gerät löschen?', text: `„${name}“ wird dauerhaft aus dem Inventar entfernt. Der Zuweisungsverlauf bleibt erhalten.`, aktion: 'Löschen', gefahr: true })) return;
     try {
       await api('DELETE', '/devices/' + id);
       await loadDevices();
@@ -1762,7 +1808,7 @@
   }
 
   async function deleteEmployee(id, name) {
-    if (!confirm(`Mitarbeiter "${name}" wirklich löschen?`)) return;
+    if (!await confirmDialog({ titel: 'Mitarbeiter löschen?', text: `„${name}“ wird dauerhaft entfernt. Zugewiesene Geräte verlieren ihre Zuordnung.`, aktion: 'Löschen', gefahr: true })) return;
     try {
       await api('DELETE', '/employees/' + id);
       await loadEmployees();
@@ -1799,7 +1845,7 @@
   }
 
   async function returnDevice(assignmentId) {
-    if (!confirm('Gerät zurückgeben?')) return;
+    if (!await confirmDialog({ titel: 'Gerät zurückgeben?', text: `Die Zuweisung wird beendet und im Verlauf als zurückgegeben vermerkt. Das Gerät ist danach wieder verfügbar.`, aktion: 'Zurückgeben' })) return;
     try {
       await api('PUT', '/assignments/' + assignmentId + '/return');
       await Promise.all([loadDevices(), loadDashboard()]);
@@ -1902,7 +1948,7 @@
   }
 
   async function deleteUser(id, username) {
-    if (!confirm(`Benutzer "${username}" wirklich löschen?`)) return;
+    if (!await confirmDialog({ titel: 'Benutzer löschen?', text: `„${username}“ verliert damit den Zugang zum Inventarsystem.`, aktion: 'Löschen', gefahr: true })) return;
     try {
       await api('DELETE', '/users/' + id);
       await loadUsers();
@@ -1912,19 +1958,42 @@
 
   // ─── MODAL ───────────────────────────────────────────────────────────────────
   function closeModal(id) {
+    if (id === 'confirm-modal') return closeConfirm(false);
     document.getElementById(id).classList.add('hidden');
   }
 
   document.querySelectorAll('.modal-overlay').forEach(el => {
-    el.addEventListener('click', e => { if (e.target === el) el.classList.add('hidden'); });
+    el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
   });
 
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
-    const open = document.querySelectorAll('.modal-overlay:not(.hidden)');
-    if (open.length) { open.forEach(m => m.classList.add('hidden')); return; }
+    const open = [...document.querySelectorAll('.modal-overlay:not(.hidden)')];
+    if (open.length) { open.forEach(m => closeModal(m.id)); return; }
     closeNav();
   });
+
+  // ─── BESTAETIGUNG ────────────────────────────────────────────────────────────
+  // Das Regelwerk verbietet window.confirm zum Loeschen: kein Fokusfang, keine
+  // eigene Gestaltung, keine Beschreibung der Folgen.
+  let confirmResolve = null;
+  function confirmDialog({ titel, text, aktion = 'Bestätigen', gefahr = false }) {
+    return new Promise(resolve => {
+      confirmResolve = resolve;
+      document.getElementById('confirm-title').textContent = titel;
+      document.getElementById('confirm-text').textContent = text;
+      const ok = document.getElementById('confirm-ok');
+      ok.textContent = aktion;
+      ok.className = 'btn ' + (gefahr ? 'btn-danger' : 'btn-primary');
+      document.getElementById('confirm-modal').classList.remove('hidden');
+      setTimeout(() => ok.focus(), 50);
+    });
+  }
+  function closeConfirm(ok) {
+    document.getElementById('confirm-modal').classList.add('hidden');
+    const r = confirmResolve; confirmResolve = null;
+    if (r) r(ok);
+  }
 
   // ─── STANDORTE ───────────────────────────────────────────────────────────────
   function fillLocationSelect(selectId, selectedId) {
@@ -1955,12 +2024,15 @@
       return;
     }
     tbody.innerHTML = locs.map(l => `
-      <tr style="cursor:pointer" onclick="showLocationDetails(${l.id})">
-        <td><strong>${esc(l.name)}</strong>${l.notes ? `<br><span class="faint">${esc(l.notes)}</span>` : ''}</td>
+      <tr>
+        <th scope="row" class="zeilenkopf">
+          <button class="zeilenlink" onclick="showLocationDetails(${l.id})">${esc(l.name)}</button>
+          ${l.notes ? `<span class="faint">${esc(l.notes)}</span>` : ''}
+        </th>
         <td class="col-optional">${l.address ? `<span class="dim">${esc(l.address)}</span>` : dash()}</td>
         <td>${l.employee_count > 0 ? `<span class="badge badge-blue badge-plain">${l.employee_count}</span>` : '<span class="faint">0</span>'}</td>
         <td>${l.device_count > 0 ? `<span class="badge badge-gray badge-plain">${l.device_count}</span>` : '<span class="faint">0</span>'}</td>
-        <td onclick="event.stopPropagation()">
+        <td>
           <div class="row-actions">
             <button class="btn btn-icon admin-only" onclick="openLocationModal(${l.id})" title="Bearbeiten" aria-label="Bearbeiten">${icon('edit')}</button>
             <button class="btn btn-icon danger admin-only" onclick="deleteLocation(${l.id}, '${escArg(l.name)}')" title="Löschen" aria-label="Löschen">${icon('trash')}</button>
@@ -1998,7 +2070,7 @@
   }
 
   async function deleteLocation(id, name) {
-    if (!confirm(`Standort "${name}" wirklich löschen?\nMitarbeiter und Geräte verlieren die Standort-Zuordnung.`)) return;
+    if (!await confirmDialog({ titel: 'Standort löschen?', text: `„${name}“ wird entfernt. Mitarbeiter und Geräte an diesem Standort verlieren ihre Zuordnung.`, aktion: 'Löschen', gefahr: true })) return;
     try {
       await api('DELETE', '/locations/' + id);
       await loadLocations();
