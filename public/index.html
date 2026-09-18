@@ -3,9 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="color-scheme" content="dark" />
+  <meta name="color-scheme" content="light dark" />
   <meta name="theme-color" content="#0b0e12" />
   <title>Inventarsystem · dachbleche24</title>
+  <script>
+    // Laeuft vor dem ersten Rendern, sonst blitzt kurz das falsche Thema auf.
+    try {
+      var t = localStorage.getItem("inv-theme");
+      if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+    } catch (e) {}
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" />
@@ -15,58 +22,183 @@
        DESIGN TOKENS — übernommen aus DAKO (dako-web-production)
        ═══════════════════════════════════════════════════════════════════════ */
     :root {
-      /* Flächen */
-      --shell:            #0b0e12;
-      --background:       #101317;
-      --card:             #171b21;
-      --card-raised:      #1c2128;
-      --surface-hover:    #ffffff0a;
-      --surface-subtle:   #ffffff06;
+      /* ── Themenunabhängig ────────────────────────────────────────────────
+         Das Markenpanel (Sidebar, mobile Leiste, Login-Panel) bleibt in
+         DAKO auch im Hellmodus dunkel. Alles darin benutzt diese Werte. */
+      --shell-foreground:   #f5f6f8eb;
+      --shell-muted:        #f5f6f880;
+      --shell-faint:        #f5f6f880;
+      --shell-border:       #ffffff14;
+      --shell-hover:        #ffffff0a;
+      --shell-accent:       #e8702c;
+      --shell-accent-soft:  #e8702c29;
+      --shell-accent-strong:#f2a575;
 
-      /* Text */
-      --foreground:       #eceff3;
-      --muted-foreground: #9aa3ad;
-      --shell-foreground: #f5f6f8eb;
-      --shell-muted:      #f5f6f880;
-
-      /* Akzent */
-      --accent:           #e8702c;
-      --accent-strong:    #f2a575;
-      --accent-soft:      #e8702c29;
-      --accent-foreground:#14181d;
-
-      /* Marke */
       --brand-red:        #e30613;
 
-      /* Status */
-      --success:          #4cc38a;
-      --warning:          #d9a441;
-      --danger:           #ef6d61;
-      --info:             #63b0cc;
-
-      /* Rahmen */
-      --border:           #ffffff14;
-      --border-strong:    #ffffff26;
-      --border-hover:     #ffffff47;
-
-      /* Radien */
       --radius-card:      14px;
       --radius-inner:     10px;
       --radius-btn:       12px;
       --radius-input:     8px;
       --radius-pill:      999px;
 
-      /* Schatten */
+      --ease-fluid:       cubic-bezier(.32, .72, 0, 1);
+      --dur:              .18s;
+      --sidebar-w:        252px;
+
+      /* ── HELL (entspricht DAKOs :root) ───────────────────────────────── */
+      --shell:            #171b21;
+      --background:       #f3f4f6;
+      --card:             #fff;
+      --card-raised:      #fff;
+      --surface-hover:    #14181d0a;
+      --surface-subtle:   #14181d05;
+      --hairline:         #14181d0d;
+      --track:            #14181d0d;
+      --thumb:            #14181d1f;
+      --thumb-hover:      #14181d38;
+      --sticky-head:      #f7f8f9;
+      --sticky-hover:     #f4f5f7;
+
+      --foreground:       #14181d;
+      --heading:          #14181d;
+      --muted-foreground: #5b6470;
+      --faint-foreground: #5b6470e6;
+
+      --accent:           #ba4c0c;
+      --accent-strong:    #9a3f08;
+      --accent-soft:      #ba4c0c1a;
+      --accent-foreground:#fff;
+
+      --primary:          #14181d;
+      --primary-foreground:#fff;
+      --primary-hover:    #20262e;
+
+      --success:          #1b6f47;
+      --warning:          #8a5a05;
+      --danger:           #b42318;
+      --info:             #1f6f8b;
+
+      --border:           #14181d14;
+      --border-strong:    #14181d29;
+      --border-hover:     #14181d47;
+
+      --shadow-sm:        0 1px 2px #14181d0a, 0 1px 1px #14181d05;
+      --shadow-card:      0 1px 2px #14181d0a, 0 10px 30px -18px #14181d2e;
+      --shadow-float:     0 2px 4px #14181d0d, 0 24px 48px -20px #14181d47;
+
+      --picker-filter:    none;
+      color-scheme: light;
+    }
+
+    /* ── DUNKEL ──────────────────────────────────────────────────────────
+       Zwei Wege wie bei DAKO: der Systemwunsch greift automatisch, solange
+       niemand ausdrücklich „hell" gewählt hat; data-theme schlägt beides. */
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --shell:            #0b0e12;
+        --background:       #101317;
+        --card:             #171b21;
+        --card-raised:      #1c2128;
+        --surface-hover:    #ffffff0a;
+        --surface-subtle:   #ffffff06;
+        --hairline:         #ffffff0d;
+        --track:            #ffffff0d;
+        --thumb:            #ffffff1a;
+        --thumb-hover:      #ffffff33;
+        --sticky-head:      #181b21;
+        --sticky-hover:     #1c2027;
+
+        --foreground:       #eceff3;
+        --heading:          #fff;
+        --muted-foreground: #9aa3ad;
+        --faint-foreground: #9aa3adcc;
+
+        --accent:           #e8702c;
+        --accent-strong:    #f2a575;
+        --accent-soft:      #e8702c29;
+        --accent-foreground:#14181d;
+
+        --primary:          #eceff3;
+        --primary-foreground:#14181d;
+        --primary-hover:    #fff;
+
+        --success:          #4cc38a;
+        --warning:          #d9a441;
+        --danger:           #ef6d61;
+        --info:             #63b0cc;
+
+        --border:           #ffffff14;
+        --border-strong:    #ffffff26;
+        --border-hover:     #ffffff47;
+
+        --shadow-sm:        0 1px 2px #0000004d;
+        --shadow-card:      0 1px 2px #0000004d, 0 10px 30px -18px #0009;
+        --shadow-float:     0 2px 4px #0006, 0 24px 48px -20px #000000b3;
+
+        --picker-filter:    invert(.65);
+        color-scheme: dark;
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --shell:            #0b0e12;
+      --background:       #101317;
+      --card:             #171b21;
+      --card-raised:      #1c2128;
+      --surface-hover:    #ffffff0a;
+      --surface-subtle:   #ffffff06;
+      --hairline:         #ffffff0d;
+      --track:            #ffffff0d;
+      --thumb:            #ffffff1a;
+      --thumb-hover:      #ffffff33;
+      --sticky-head:      #181b21;
+      --sticky-hover:     #1c2027;
+
+      --foreground:       #eceff3;
+      --heading:          #fff;
+      --muted-foreground: #9aa3ad;
+      --faint-foreground: #9aa3adcc;
+
+      --accent:           #e8702c;
+      --accent-strong:    #f2a575;
+      --accent-soft:      #e8702c29;
+      --accent-foreground:#14181d;
+
+      --primary:          #eceff3;
+      --primary-foreground:#14181d;
+      --primary-hover:    #fff;
+
+      --success:          #4cc38a;
+      --warning:          #d9a441;
+      --danger:           #ef6d61;
+      --info:             #63b0cc;
+
+      --border:           #ffffff14;
+      --border-strong:    #ffffff26;
+      --border-hover:     #ffffff47;
+
       --shadow-sm:        0 1px 2px #0000004d;
       --shadow-card:      0 1px 2px #0000004d, 0 10px 30px -18px #0009;
       --shadow-float:     0 2px 4px #0006, 0 24px 48px -20px #000000b3;
 
-      /* Bewegung */
-      --ease-fluid:       cubic-bezier(.32, .72, 0, 1);
-      --dur:              .18s;
+      --picker-filter:    invert(.65);
+      color-scheme: dark;
+    }
 
-      /* Maße */
-      --sidebar-w:        252px;
+    /* Im Markenpanel gelten die dunklen Werte unabhängig vom Thema.
+       Durch das Umdefinieren hier erben alle Regeln darin automatisch. */
+    .sidebar, .mobile-bar, .login-brand {
+      --accent:           var(--shell-accent);
+      --accent-soft:      var(--shell-accent-soft);
+      --accent-strong:    var(--shell-accent-strong);
+      --foreground:       var(--shell-foreground);
+      --muted-foreground: var(--shell-muted);
+      --faint-foreground: var(--shell-faint);
+      --border:           var(--shell-border);
+      --border-hover:     #ffffff47;
+      --surface-hover:    var(--shell-hover);
+      --heading:          #fff;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -87,8 +219,8 @@
 
     ::-webkit-scrollbar { width: 10px; height: 10px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #ffffff1a; border-radius: 99px; border: 2px solid transparent; background-clip: content-box; }
-    ::-webkit-scrollbar-thumb:hover { background: #ffffff33; background-clip: content-box; }
+    ::-webkit-scrollbar-thumb { background: var(--thumb); border-radius: 99px; border: 2px solid transparent; background-clip: content-box; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--thumb-hover); background-clip: content-box; }
 
     :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 
@@ -121,11 +253,11 @@
     .wordmark {
       display: inline-flex; align-items: baseline;
       font-weight: 700; letter-spacing: -.03em; line-height: 1;
-      white-space: nowrap; font-size: 20px;
+      white-space: nowrap; font-size: 20px; color: var(--heading);
     }
-    .wordmark .w-main { color: #fff; }
+    .wordmark .w-main { color: currentColor; }
     .wordmark .w-24   { color: var(--brand-red); }
-    .wordmark .w-r    { position: relative; top: -.55em; margin-left: .1em; font-size: .4em; font-weight: 600; color: #ffffff99; }
+    .wordmark .w-r    { position: relative; top: -.55em; margin-left: .1em; font-size: .4em; font-weight: 600; opacity: .6; }
 
     /* ═══════════════════════════════════════════════════════════════════════
        APP-LAYOUT
@@ -157,7 +289,7 @@
     .nav-section {
       padding: 16px 8px 6px;
       font-size: 10px; font-weight: 500; letter-spacing: 1.6px;
-      text-transform: uppercase; color: #f5f6f866;
+      text-transform: uppercase; color: var(--shell-faint);
     }
     .nav-item {
       position: relative;
@@ -180,7 +312,7 @@
     .nav-item .icon { opacity: .9; }
     .nav-count {
       margin-left: auto; font-size: 11px; font-weight: 500;
-      color: #f5f6f866; font-variant-numeric: tabular-nums;
+      color: var(--shell-faint); font-variant-numeric: tabular-nums;
     }
     .nav-item.active .nav-count { color: var(--accent-strong); opacity: .75; }
 
@@ -238,7 +370,7 @@
     }
     .page-head h1 {
       font-size: 28px; font-weight: 600; letter-spacing: -.5px;
-      line-height: 1.15; color: #fff;
+      line-height: 1.15; color: var(--heading);
     }
     .page-head p { font-size: 14px; color: var(--muted-foreground); margin-top: 5px; }
     .page-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -278,11 +410,11 @@
     .hero-figure { display: flex; flex-direction: column; gap: 9px; }
     .hero-value {
       font-size: 52px; font-weight: 600; letter-spacing: -1.8px; line-height: 1;
-      color: #fff; font-variant-numeric: tabular-nums;
+      color: var(--heading); font-variant-numeric: tabular-nums;
     }
     .hero-note { font-size: 13px; color: var(--muted-foreground); }
 
-    .meter { display: flex; height: 10px; border-radius: var(--radius-pill); overflow: hidden; background: #ffffff0d; gap: 2px; }
+    .meter { display: flex; height: 10px; border-radius: var(--radius-pill); overflow: hidden; background: var(--track); gap: 2px; }
     /* Die Breiten setzt loadDashboard() einmalig – kein Übergang auf width,
        das würde bei jedem Frame ein Reflow der ganzen Zeile auslösen. */
     .meter span { display: block; height: 100%; min-width: 0; }
@@ -312,7 +444,7 @@
     .stat-top { display: flex; align-items: center; gap: 8px; }
     .stat-card .value {
       font-size: 32px; font-weight: 600; letter-spacing: -1px; line-height: 1;
-      color: #fff; font-variant-numeric: tabular-nums;
+      color: var(--heading); font-variant-numeric: tabular-nums;
     }
     .stat-card .sub { font-size: 12px; color: var(--muted-foreground); }
 
@@ -328,11 +460,11 @@
       width: 230px; padding: 8px 12px 8px 33px;
       background: var(--background); color: var(--foreground);
       border: none; border-radius: var(--radius-input);
-      box-shadow: inset 0 0 0 1px #ffffff26;
+      box-shadow: inset 0 0 0 1px var(--border-strong);
       font-family: inherit; font-size: 13px; outline: none;
       transition: box-shadow var(--dur) var(--ease-fluid);
     }
-    .search-box::placeholder { color: #9aa3ad99; }
+    .search-box::placeholder { color: var(--faint-foreground); }
     .search-box:focus { box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
 
     .filter-pills { display: flex; gap: 4px; flex-wrap: wrap; padding: 3px; background: var(--background); border-radius: var(--radius-inner); }
@@ -358,7 +490,7 @@
       border-bottom: 1px solid var(--border);
     }
     td {
-      padding: 13px 13px; border-bottom: 1px solid #ffffff0d;
+      padding: 13px 13px; border-bottom: 1px solid var(--hairline);
       vertical-align: middle; color: var(--foreground);
     }
     th { padding-left: 13px; padding-right: 13px; }
@@ -366,7 +498,7 @@
     tbody tr:hover td { background: var(--surface-subtle); }
     tr:last-child td { border-bottom: none; }
     td .dim { color: var(--muted-foreground); }
-    td .faint { color: #9aa3ad80; }
+    td .faint { color: var(--faint-foreground); }
     .row-actions { display: flex; gap: 4px; justify-content: flex-end; align-items: center; }
 
     /* Aktionsspalte bleibt beim horizontalen Scrollen breiter Tabellen stehen.
@@ -377,8 +509,8 @@
       background: var(--card);
       box-shadow: -10px 0 12px -12px #000c;
     }
-    .card .table-wrap th:last-child { background: #181b21; }
-    .card .table-wrap tbody tr:hover td:last-child { background: #1c2027; }
+    .card .table-wrap th:last-child { background: var(--sticky-head); }
+    .card .table-wrap tbody tr:hover td:last-child { background: var(--sticky-hover); }
 
     .inv-no { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; font-weight: 500; color: var(--accent-strong); white-space: nowrap; }
     .serial { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; color: var(--muted-foreground); }
@@ -400,7 +532,7 @@
     .badge-orange { color: var(--accent-strong); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 34%, transparent); }
     .badge-red    { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); border-color: color-mix(in srgb, var(--danger) 26%, transparent); }
     .badge-blue   { color: var(--info); background: color-mix(in srgb, var(--info) 14%, transparent); border-color: color-mix(in srgb, var(--info) 26%, transparent); }
-    .badge-gray   { color: var(--muted-foreground); background: #ffffff0d; border-color: var(--border); }
+    .badge-gray   { color: var(--muted-foreground); background: var(--track); border-color: var(--border); }
 
     .role-badge {
       display: inline-flex; align-items: center;
@@ -408,7 +540,7 @@
       border: 1px solid transparent;
     }
     .role-badge.admin { color: var(--accent-strong); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 34%, transparent); }
-    .role-badge.user  { color: var(--muted-foreground); background: #ffffff0d; border-color: var(--border); }
+    .role-badge.user  { color: var(--muted-foreground); background: var(--track); border-color: var(--border); }
 
     /* ═══════════════════════════════════════════════════════════════════════
        BUTTONS
@@ -424,8 +556,8 @@
     .btn:active { transform: translateY(1px); }
 
     /* Primär — hell auf dunkel, exakt wie DAKOs Login-Button */
-    .btn-primary { background: var(--foreground); color: var(--accent-foreground); box-shadow: var(--shadow-sm); }
-    .btn-primary:hover { background: #fff; }
+    .btn-primary { background: var(--primary); color: var(--primary-foreground); box-shadow: var(--shadow-sm); }
+    .btn-primary:hover { background: var(--primary-hover); }
 
     /* Akzent — die eine wichtigste Aktion pro Seite */
     .btn-accent { background: var(--accent); color: var(--accent-foreground); font-weight: 600; box-shadow: var(--shadow-sm); }
@@ -459,19 +591,19 @@
        FORMULARE
        ═══════════════════════════════════════════════════════════════════════ */
     .form-group { display: flex; flex-direction: column; gap: 6px; }
-    label { font-size: 13px; font-weight: 500; color: var(--shell-foreground); }
-    .hint { font-size: 11.5px; color: #9aa3ad99; }
+    label { font-size: 13px; font-weight: 500; color: var(--foreground); }
+    .hint { font-size: 11.5px; color: var(--faint-foreground); }
 
     input, select, textarea {
       width: 100%; padding: 9px 12px;
       background: var(--card); color: var(--foreground);
       border: none; border-radius: var(--radius-input);
-      box-shadow: inset 0 0 0 1px #ffffff26;
+      box-shadow: inset 0 0 0 1px var(--border-strong);
       font-family: inherit; font-size: 14px; line-height: 1.4;
       outline: none;
       transition: box-shadow var(--dur) var(--ease-fluid);
     }
-    input::placeholder, textarea::placeholder { color: #9aa3ad80; }
+    input::placeholder, textarea::placeholder { color: var(--faint-foreground); }
     input:hover, select:hover, textarea:hover { box-shadow: inset 0 0 0 1px var(--border-hover); }
     input:focus, select:focus, textarea:focus { box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
     input:disabled { color: var(--muted-foreground); background: var(--background); cursor: not-allowed; }
@@ -482,7 +614,7 @@
       background-repeat: no-repeat; background-position: right 11px center;
     }
     select option { background: var(--card); color: var(--foreground); }
-    input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.65); cursor: pointer; }
+    input[type="date"]::-webkit-calendar-picker-indicator { filter: var(--picker-filter); cursor: pointer; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
     /* ═══════════════════════════════════════════════════════════════════════
@@ -581,12 +713,12 @@
       color: #fff; margin: 14px 0 16px;
     }
     .login-pitch p { font-size: 14px; line-height: 1.625; color: var(--shell-muted); }
-    .login-foot { font-size: 12px; color: #f5f6f866; }
+    .login-foot { font-size: 12px; color: var(--shell-faint); }
 
     .login-panel { display: flex; align-items: center; justify-content: center; padding: 48px 24px; }
     .login-box { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 16px; }
     .login-box .wordmark { display: none; margin-bottom: 4px; }
-    .login-title { font-size: 22px; font-weight: 600; letter-spacing: -.3px; color: #fff; }
+    .login-title { font-size: 22px; font-weight: 600; letter-spacing: -.3px; color: var(--heading); }
     .login-sub { font-size: 13.5px; color: var(--muted-foreground); margin-top: 4px; }
     .login-error {
       display: none; align-items: center; gap: 8px;
@@ -597,7 +729,7 @@
     }
     .login-error.show { display: flex; }
     .login-submit { padding: 11px; font-size: 14.5px; }
-    .login-legal { font-size: 12px; color: #9aa3ad99; line-height: 1.5; }
+    .login-legal { font-size: 12px; color: var(--faint-foreground); line-height: 1.5; }
 
     /* ═══════════════════════════════════════════════════════════════════════
        ROLLEN
@@ -693,6 +825,9 @@
     <g id="i-close" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></g>
     <g id="i-menu" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></g>
     <g id="i-inbox" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12h-5l-2 3h-4l-2-3H3"/><path d="M5.5 5h13l2.5 7v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6Z"/></g>
+    <g id="i-sun" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></g>
+    <g id="i-moon" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4 8.4 8.4 0 1 0 20 14.2Z"/></g>
+    <g id="i-monitor" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="12.5" rx="2"/><path d="M8.5 20.5h7M12 16.5v4"/></g>
     <g id="i-alert" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16.2h.01"/></g>
   </defs>
 </svg>
@@ -704,7 +839,7 @@
     <div class="glow glow-white" style="width:360px;height:360px;right:-80px;bottom:-128px"></div>
     <span class="wordmark" style="font-size:24px"><span class="w-main">dachbleche</span><span class="w-24">24</span><span class="w-r">&reg;</span></span>
     <div class="login-pitch">
-      <p class="eyebrow" style="color:#f5f6f880">Inventarsystem &middot; Interne IT</p>
+      <p class="eyebrow" style="color:var(--shell-muted)">Inventarsystem &middot; Interne IT</p>
       <h1>Jedes Ger&auml;t. Jeder Mitarbeiter. Jeder Standort.</h1>
       <p>Bestand erfassen, Ger&auml;te zuweisen, R&uuml;ckgaben dokumentieren. Das Inventarsystem h&auml;lt fest, wer was seit wann hat, an allen Standorten.</p>
     </div>
@@ -777,6 +912,9 @@
         <span class="sidebar-username" id="header-username"></span>
         <span class="sidebar-role" id="header-role"></span>
       </div>
+      <button class="btn btn-icon" id="theme-toggle" onclick="cycleTheme()">
+        <svg class="icon"><use href="#i-monitor" id="theme-icon"/></svg>
+      </button>
       <button class="btn btn-icon" onclick="doLogout()" title="Abmelden" aria-label="Abmelden">
         <svg class="icon"><use href="#i-logout"/></svg>
       </button>
@@ -1303,6 +1441,51 @@
 
   function openNav()  { document.body.classList.add('nav-open'); }
   function closeNav() { document.body.classList.remove('nav-open'); }
+
+  // ─── DESIGN HELL / DUNKEL ────────────────────────────────────────────────────
+  // Drei Zustände: System folgt der Einstellung des Betriebssystems,
+  // Hell und Dunkel überschreiben sie. Gespeichert wird pro Browser.
+  const THEMES = ['system', 'light', 'dark'];
+  const THEME_META = {
+    system: { icon: 'monitor', label: 'Design: System' },
+    light:  { icon: 'sun',     label: 'Design: Hell' },
+    dark:   { icon: 'moon',    label: 'Design: Dunkel' },
+  };
+
+  function readTheme() {
+    try { const t = localStorage.getItem('inv-theme'); return THEMES.includes(t) ? t : 'system'; }
+    catch { return 'system'; }
+  }
+
+  function applyTheme(theme) {
+    const root = document.documentElement;
+    if (theme === 'system') root.removeAttribute('data-theme');
+    else root.setAttribute('data-theme', theme);
+    try { localStorage.setItem('inv-theme', theme); } catch {}
+
+    const meta = THEME_META[theme];
+    const btn = document.getElementById('theme-toggle');
+    if (btn) {
+      btn.title = meta.label;
+      btn.setAttribute('aria-label', meta.label + ' – zum Wechseln klicken');
+      document.getElementById('theme-icon').setAttribute('href', '#i-' + meta.icon);
+    }
+    // Adressleiste auf Mobilgeräten mitfärben
+    const dunkel = theme === 'dark' ||
+      (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const tc = document.querySelector('meta[name="theme-color"]');
+    if (tc) tc.setAttribute('content', dunkel ? '#0b0e12' : '#171b21');
+  }
+
+  function cycleTheme() {
+    const next = THEMES[(THEMES.indexOf(readTheme()) + 1) % THEMES.length];
+    applyTheme(next);
+    toast(THEME_META[next].label);
+  }
+
+  applyTheme(readTheme());
+  window.matchMedia('(prefers-color-scheme: dark)')
+    .addEventListener('change', () => { if (readTheme() === 'system') applyTheme('system'); });
 
   function updateNavCounts() {
     document.getElementById('nav-count-devices').textContent   = allDevices.length   || '';
