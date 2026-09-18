@@ -16,6 +16,7 @@ Ein internes Web-Inventarsystem für ein mittelständisches Unternehmen (~20–1
 ├── server.js          # Express-Backend mit allen API-Routen
 ├── public/
 │   └── index.html     # Single-Page Frontend
+├── design/            # Hausgestaltung aus dem DAKO (Tokens + Regelwerk)
 ├── package.json
 ├── render.yaml        # (veraltet, wird nicht mehr genutzt)
 └── inventar.json      # Lokale Datenbank-Datei (nur lokal, nicht in Git)
@@ -58,6 +59,19 @@ Ein internes Web-Inventarsystem für ein mittelständisches Unternehmen (~20–1
   - Rollen: `admin` (voller Zugriff) und `user` (nur lesen / zuweisen)
 - [ ] SESSION_SECRET, ADMIN_USER, ADMIN_PASS als Umgebungsvariablen in Railway setzen
 - [ ] Nach Implementierung: `npm install` (für neue Packages), dann `git add . && git commit && git push`
+
+## Gestaltung
+Die Oberfläche folgt der Hausgestaltung aus dem DAKO. Sie liegt in `design/`:
+
+- `design/tokens.css` – Farben (hell und dunkel), Radien, Höhen, Schatten und
+  die Grundregeln; wird über `/design/tokens.css` ausgeliefert
+- `design/DESIGN.md` – das Regelwerk (Ein-Orange-Regel, Tinten-Regel,
+  Radien-Leiter, Schriftleiter, Do's and Don'ts)
+- `design/UX-LEITLINIEN.md` – die zehn Bedienregeln
+
+**Vor jeder Änderung an der Oberfläche `design/DESIGN.md` lesen.** Kurzfassung:
+keine Hex-Werte in Komponenten, höchstens eine orange Fläche je Seite, keine
+Pillenform, nichts unter 11 px, kein grauer Rahmen um eine Fläche.
 
 ## Lokale Entwicklung
 ```bash

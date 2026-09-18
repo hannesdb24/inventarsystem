@@ -47,6 +47,11 @@ function usePostgres() {
   return !!process.env.DATABASE_URL;
 }
 
+// ?archiviert=1 zeigt das Archiv statt des laufenden Bestands.
+function zeigeArchiv(req) {
+  return req.query.archiviert === '1';
+}
+
 // ─── AUTH MIDDLEWARE ──────────────────────────────────────────────────────────
 
 function requireAuth(req, res, next) {
@@ -119,6 +124,7 @@ async function initDB() {
         name TEXT NOT NULL,
         department TEXT,
         email TEXT,
+        start_date TEXT,
         location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
@@ -147,9 +153,15 @@ async function initDB() {
     await pool.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL');
     await pool.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS first_name TEXT');
     await pool.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS last_name TEXT');
+    await pool.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS start_date TEXT');
     await pool.query(`UPDATE employees SET first_name = SPLIT_PART(name, ' ', 1), last_name = NULLIF(TRIM(SUBSTRING(name FROM POSITION(' ' IN name) + 1)), '') WHERE first_name IS NULL AND name IS NOT NULL`);
     await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL');
     await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS inventory_number TEXT UNIQUE');
+    // Archivieren statt Loeschen (design/DESIGN.md). Ohne DEFAULT, damit
+    // bestehende Zeilen NULL bleiben und weiterhin in den Listen erscheinen.
+    await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ');
+    await pool.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ');
+    await pool.query('ALTER TABLE locations ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ');
     // Standorte einmalig seeden falls noch keine vorhanden
     const { rows: locCount } = await pool.query('SELECT COUNT(*)::int AS c FROM locations');
     if (locCount[0].c === 0) {
@@ -238,12 +250,13 @@ app.get('/api/employees', async (req, res) => {
         FROM employees e
         LEFT JOIN locations l ON l.id = e.location_id
         LEFT JOIN assignments a ON a.employee_id = e.id AND a.returned_at IS NULL
+        WHERE e.archived_at IS ${zeigeArchiv(req) ? 'NOT NULL' : 'NULL'}
         GROUP BY e.id, l.name ORDER BY e.name
       `);
       return res.json(rows);
     }
     const db = loadDB();
-    res.json(db.employees.map(e => ({
+    res.json(db.employees.filter(e => zeigeArchiv(req) ? e.archived_at : !e.archived_at).map(e => ({
       ...e,
       location_name: db.locations.find(l => l.id === e.location_id)?.name || null,
       device_count: db.assignments.filter(a => a.employee_id === e.id && !a.returned_at).length
@@ -252,20 +265,20 @@ app.get('/api/employees', async (req, res) => {
 });
 
 app.post('/api/employees', requireAdmin, async (req, res) => {
-  const { first_name, last_name, department, email, location_id } = req.body;
+  const { first_name, last_name, department, email, start_date, location_id } = req.body;
   if (!first_name) return res.status(400).json({ error: 'Vorname erforderlich' });
   const fullName = [first_name, last_name].filter(Boolean).join(' ');
   try {
     if (usePostgres()) {
       const { rows } = await pool.query(
-        'INSERT INTO employees (name, first_name, last_name, department, email, location_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
-        [fullName, first_name, last_name || null, department || null, email || null, location_id || null]
+        'INSERT INTO employees (name, first_name, last_name, department, email, start_date, location_id) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+        [fullName, first_name, last_name || null, department || null, email || null, start_date || null, location_id || null]
       );
       const loc = location_id ? (await pool.query('SELECT name FROM locations WHERE id=$1', [location_id])).rows[0] : null;
       return res.status(201).json({ ...rows[0], device_count: 0, location_name: loc?.name || null });
     }
     const db = loadDB();
-    const employee = { id: nextId(db, 'e'), name: fullName, first_name, last_name: last_name || null, department: department || null, email: email || null, location_id: location_id || null, created_at: now() };
+    const employee = { id: nextId(db, 'e'), name: fullName, first_name, last_name: last_name || null, department: department || null, email: email || null, start_date: start_date || null, location_id: location_id || null, created_at: now() };
     db.employees.push(employee);
     saveDB(db);
     res.status(201).json({ ...employee, device_count: 0, location_name: db.locations.find(l => l.id === location_id)?.name || null });
@@ -274,14 +287,14 @@ app.post('/api/employees', requireAdmin, async (req, res) => {
 
 app.put('/api/employees/:id', requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id);
-  const { first_name, last_name, department, email, location_id } = req.body;
+  const { first_name, last_name, department, email, start_date, location_id } = req.body;
   if (!first_name) return res.status(400).json({ error: 'Vorname erforderlich' });
   const fullName = [first_name, last_name].filter(Boolean).join(' ');
   try {
     if (usePostgres()) {
       const { rows } = await pool.query(
-        'UPDATE employees SET name=$1, first_name=$2, last_name=$3, department=$4, email=$5, location_id=$6 WHERE id=$7 RETURNING *',
-        [fullName, first_name, last_name || null, department || null, email || null, location_id || null, id]
+        'UPDATE employees SET name=$1, first_name=$2, last_name=$3, department=$4, email=$5, start_date=$6, location_id=$7 WHERE id=$8 RETURNING *',
+        [fullName, first_name, last_name || null, department || null, email || null, start_date || null, location_id || null, id]
       );
       if (!rows.length) return res.status(404).json({ error: 'Nicht gefunden' });
       const cnt = await pool.query('SELECT COUNT(*)::int AS c FROM assignments WHERE employee_id=$1 AND returned_at IS NULL', [id]);
@@ -291,7 +304,7 @@ app.put('/api/employees/:id', requireAdmin, async (req, res) => {
     const db = loadDB();
     const idx = db.employees.findIndex(e => e.id === id);
     if (idx === -1) return res.status(404).json({ error: 'Nicht gefunden' });
-    db.employees[idx] = { ...db.employees[idx], name: fullName, first_name, last_name: last_name || null, department: department || null, email: email || null, location_id: location_id || null };
+    db.employees[idx] = { ...db.employees[idx], name: fullName, first_name, last_name: last_name || null, department: department || null, email: email || null, start_date: start_date || null, location_id: location_id || null };
     saveDB(db);
     res.json({ ...db.employees[idx], device_count: db.assignments.filter(a => a.employee_id === id && !a.returned_at).length, location_name: db.locations.find(l => l.id === location_id)?.name || null });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -303,13 +316,14 @@ app.delete('/api/employees/:id', requireAdmin, async (req, res) => {
     if (usePostgres()) {
       const { rows } = await pool.query('SELECT COUNT(*)::int AS c FROM assignments WHERE employee_id=$1 AND returned_at IS NULL', [id]);
       if (rows[0].c > 0) return res.status(400).json({ error: 'Mitarbeiter hat noch zugewiesene Geräte' });
-      await pool.query('DELETE FROM employees WHERE id=$1', [id]);
+      await pool.query('UPDATE employees SET archived_at = NOW() WHERE id=$1', [id]);
       return res.json({ success: true });
     }
     const db = loadDB();
     if (db.assignments.some(a => a.employee_id === id && !a.returned_at))
       return res.status(400).json({ error: 'Mitarbeiter hat noch zugewiesene Geräte' });
-    db.employees = db.employees.filter(e => e.id !== id);
+    const emp = db.employees.find(e => e.id === id);
+    if (emp) emp.archived_at = now();
     saveDB(db);
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -349,12 +363,13 @@ app.get('/api/devices', async (req, res) => {
         LEFT JOIN locations l ON l.id = d.location_id
         LEFT JOIN assignments a ON a.device_id = d.id AND a.returned_at IS NULL
         LEFT JOIN employees e ON e.id = a.employee_id
+        WHERE d.archived_at IS ${zeigeArchiv(req) ? 'NOT NULL' : 'NULL'}
         ORDER BY d.name
       `);
       return res.json(rows);
     }
     const db = loadDB();
-    res.json(db.devices.map(d => {
+    res.json(db.devices.filter(d => zeigeArchiv(req) ? d.archived_at : !d.archived_at).map(d => {
       const a = db.assignments.find(x => x.device_id === d.id && !x.returned_at);
       const e = a ? db.employees.find(x => x.id === a.employee_id) : null;
       return { ...d, location_name: db.locations.find(l => l.id === d.location_id)?.name || null, assigned_to_name: e?.name || null, assigned_to_id: e?.id || null, assigned_at: a?.assigned_at || null, assignment_id: a?.id || null };
@@ -428,15 +443,15 @@ app.delete('/api/devices/:id', requireAdmin, async (req, res) => {
     if (usePostgres()) {
       const { rows } = await pool.query('SELECT COUNT(*)::int AS c FROM assignments WHERE device_id=$1 AND returned_at IS NULL', [id]);
       if (rows[0].c > 0) return res.status(400).json({ error: 'Gerät ist gerade zugewiesen' });
-      await pool.query('DELETE FROM assignments WHERE device_id=$1', [id]);
-      await pool.query('DELETE FROM devices WHERE id=$1', [id]);
+      // Zuweisungen bleiben stehen: der Verlauf ist das Protokoll.
+      await pool.query('UPDATE devices SET archived_at = NOW() WHERE id=$1', [id]);
       return res.json({ success: true });
     }
     const db = loadDB();
     if (db.assignments.some(a => a.device_id === id && !a.returned_at))
       return res.status(400).json({ error: 'Gerät ist gerade zugewiesen' });
-    db.devices = db.devices.filter(d => d.id !== id);
-    db.assignments = db.assignments.filter(a => a.device_id !== id);
+    const dev = db.devices.find(d => d.id === id);
+    if (dev) dev.archived_at = now();
     saveDB(db);
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -529,8 +544,9 @@ app.get('/api/locations', async (req, res) => {
           COUNT(DISTINCT e.id)::int AS employee_count,
           COUNT(DISTINCT d.id)::int AS device_count
         FROM locations l
-        LEFT JOIN employees e ON e.location_id = l.id
-        LEFT JOIN devices d ON d.location_id = l.id
+        LEFT JOIN employees e ON e.location_id = l.id AND e.archived_at IS NULL
+        LEFT JOIN devices d ON d.location_id = l.id AND d.archived_at IS NULL
+        WHERE l.archived_at IS ${zeigeArchiv(req) ? 'NOT NULL' : 'NULL'}
         GROUP BY l.id ORDER BY l.name
       `);
       return res.json(rows);
@@ -630,17 +646,41 @@ app.delete('/api/locations/:id', requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id);
   try {
     if (usePostgres()) {
-      await pool.query('DELETE FROM locations WHERE id=$1', [id]);
+      // Zuordnungen bleiben bestehen; ein archivierter Standort wird nur nicht
+      // mehr gelistet. Nichts an fremden Datensaetzen wird stillschweigend
+      // umgeschrieben.
+      await pool.query('UPDATE locations SET archived_at = NOW() WHERE id=$1', [id]);
       return res.json({ success: true });
     }
     const db = loadDB();
-    db.locations = db.locations.filter(l => l.id !== id);
-    db.employees.forEach(e => { if (e.location_id === id) e.location_id = null; });
-    db.devices.forEach(d => { if (d.location_id === id) d.location_id = null; });
+    const loc = db.locations.find(l => l.id === id);
+    if (loc) loc.archived_at = now();
     saveDB(db);
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+// ─── WIEDERHERSTELLEN ─────────────────────────────────────────────────────────
+
+const ARCHIVIERBAR = { devices: 'devices', employees: 'employees', locations: 'locations' };
+
+for (const [pfad, tabelle] of Object.entries(ARCHIVIERBAR)) {
+  app.put(`/api/${pfad}/:id/restore`, requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id);
+    try {
+      if (usePostgres()) {
+        await pool.query(`UPDATE ${tabelle} SET archived_at = NULL WHERE id=$1`, [id]);
+        return res.json({ success: true });
+      }
+      const db = loadDB();
+      const eintrag = db[tabelle].find(x => x.id === id);
+      if (!eintrag) return res.status(404).json({ error: 'Nicht gefunden' });
+      delete eintrag.archived_at;
+      saveDB(db);
+      res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+}
 
 // ─── CSV IMPORT ───────────────────────────────────────────────────────────────
 
@@ -725,8 +765,8 @@ app.post('/api/employees/import', requireAdmin, async (req, res) => {
       if (!first_name) { skipped++; errors.push(`Zeile ${i + 2}: Vorname fehlt`); continue; }
       const fullName = [first_name, last_name].filter(Boolean).join(' ');
       try {
-        await pool.query('INSERT INTO employees (name, first_name, last_name, department, email) VALUES ($1,$2,$3,$4,$5)',
-          [fullName, first_name, last_name || null, r.abteilung || r.department || null, r.e_mail || r.email || null]);
+        await pool.query('INSERT INTO employees (name, first_name, last_name, department, email, start_date) VALUES ($1,$2,$3,$4,$5,$6)',
+          [fullName, first_name, last_name || null, r.abteilung || r.department || null, r.e_mail || r.email || null, r.eintrittsdatum || r.start_date || null]);
         imported++;
       } catch (e) { skipped++; errors.push(`Zeile ${i + 2} („${fullName}"): ${e.message}`); }
     }
@@ -737,7 +777,7 @@ app.post('/api/employees/import', requireAdmin, async (req, res) => {
       const last_name = r.nachname || r.last_name || '';
       if (!first_name) { skipped++; errors.push(`Zeile ${i + 2}: Vorname fehlt`); continue; }
       const fullName = [first_name, last_name].filter(Boolean).join(' ');
-      db.employees.push({ id: nextId(db, 'e'), name: fullName, first_name, last_name: last_name || null, department: r.abteilung || r.department || null, email: r.e_mail || r.email || null, created_at: now() });
+      db.employees.push({ id: nextId(db, 'e'), name: fullName, first_name, last_name: last_name || null, department: r.abteilung || r.department || null, email: r.e_mail || r.email || null, start_date: r.eintrittsdatum || r.start_date || null, created_at: now() });
       imported++;
     }
     saveDB(db);
@@ -756,19 +796,20 @@ app.get('/api/stats', async (req, res) => {
           COUNT(*) FILTER (WHERE status='verfügbar')::int AS available,
           COUNT(*) FILTER (WHERE status='vergeben')::int AS assigned,
           COUNT(*) FILTER (WHERE status='defekt')::int AS defect
-        FROM devices
+        FROM devices WHERE archived_at IS NULL
       `);
-      const emp = (await pool.query('SELECT COUNT(*)::int AS c FROM employees')).rows[0];
+      const emp = (await pool.query('SELECT COUNT(*)::int AS c FROM employees WHERE archived_at IS NULL')).rows[0];
       const active = (await pool.query('SELECT COUNT(*)::int AS c FROM assignments WHERE returned_at IS NULL')).rows[0];
       return res.json({ ...rows[0], total_employees: emp.c, total_assignments: active.c });
     }
     const db = loadDB();
+    const aktiveGeraete = db.devices.filter(d => !d.archived_at);
     res.json({
-      total_devices: db.devices.length,
-      available: db.devices.filter(d => d.status === 'verfügbar').length,
-      assigned: db.devices.filter(d => d.status === 'vergeben').length,
-      defect: db.devices.filter(d => d.status === 'defekt').length,
-      total_employees: db.employees.length,
+      total_devices: aktiveGeraete.length,
+      available: aktiveGeraete.filter(d => d.status === 'verfügbar').length,
+      assigned: aktiveGeraete.filter(d => d.status === 'vergeben').length,
+      defect: aktiveGeraete.filter(d => d.status === 'defekt').length,
+      total_employees: db.employees.filter(e => !e.archived_at).length,
       total_assignments: db.assignments.filter(a => !a.returned_at).length,
     });
   } catch (e) { res.status(500).json({ error: e.message }); }

@@ -242,18 +242,38 @@
     }
     .nav-item.active .nav-count { color: rgba(245, 246, 248, .7); }
 
+    /* Themenschalter: dreigeteilt wie im DAKO, eigene Zeile ueber dem
+       Benutzer. Werte aus der laufenden DAKO-Oberflaeche ausgelesen. */
+    .theme-switch {
+      position: relative; z-index: 1;
+      display: flex; margin: 0 12px 10px; padding: 2px;
+      border-radius: var(--radius-control);
+      background: rgba(255, 255, 255, .06);
+    }
+    .theme-switch button {
+      flex: 1; height: var(--h-cell-dense);
+      display: grid; place-items: center;
+      border: none; background: none; cursor: pointer;
+      border-radius: var(--radius-chip);
+      color: var(--shell-muted);
+      transition: background var(--dur) var(--ease-fluid), color var(--dur) var(--ease-fluid);
+    }
+    .theme-switch button:hover { color: var(--shell-foreground); }
+    .theme-switch button[aria-checked="true"] { background: rgba(255, 255, 255, .12); color: #fff; }
+
     .sidebar-foot {
       position: relative; z-index: 1;
       border-top: 1px solid var(--border);
       padding: 12px; display: flex; align-items: center; gap: 10px;
     }
+    /* Werte aus der laufenden DAKO-Oberflaeche: Kreis, neutrales Weiss,
+       kein Akzent - das Orange gehoert der Hauptaktion. */
     .avatar {
-      width: var(--h-cell); height: var(--h-cell); flex-shrink: 0;
-      border-radius: var(--radius-control);
-      background: var(--accent-soft); color: var(--accent-strong);
+      width: var(--h-switch); height: var(--h-switch); flex-shrink: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, .08); color: #fff;
       display: grid; place-items: center;
-      font-size: 12px; font-weight: 600; letter-spacing: .02em;
-      border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+      font-size: 12px; font-weight: 600;
     }
     .sidebar-user { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
     .sidebar-username {
@@ -620,6 +640,25 @@
     .modal .table-wrap th:first-child, .modal .table-wrap td:first-child { padding-left: 14px; }
 
     /* ═══════════════════════════════════════════════════════════════════════
+       LADESKELETT
+       Ein Wort wie "Laedt..." hat eine andere Hoehe als die Liste, die es
+       ersetzt - die Seite springt beim Eintreffen der Daten. Das Skelett hat
+       die Hoehe der echten Zeile, also steht die Buehne still.
+       ═══════════════════════════════════════════════════════════════════════ */
+    .skelett {
+      display: block; height: 10px; border-radius: var(--radius-chip);
+      background: var(--track);
+      animation: skelett-puls 1.6s var(--ease-fluid) infinite;
+    }
+    .skelett-kurz  { width: 42%; }
+    .skelett-mittel{ width: 68%; }
+    .skelett-lang  { width: 88%; }
+    .skelett-marke { height: 20px; width: 84px; border-radius: var(--radius-chip); }
+    .skelett-zahl  { height: 30px; width: 64px; border-radius: var(--radius-chip); }
+    tr[aria-hidden="true"] td { vertical-align: middle; }
+    @keyframes skelett-puls { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+
+    /* ═══════════════════════════════════════════════════════════════════════
        LEERZUSTAND
        ═══════════════════════════════════════════════════════════════════════ */
     .empty {
@@ -786,6 +825,8 @@
     <g id="i-sun" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></g>
     <g id="i-moon" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4 8.4 8.4 0 1 0 20 14.2Z"/></g>
     <g id="i-monitor" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="12.5" rx="2"/><path d="M8.5 20.5h7M12 16.5v4"/></g>
+    <g id="i-archive" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1.5"/><path d="M5 8v10.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V8"/><path d="M10 12h4"/></g>
+    <g id="i-restore" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a9 9 0 1 1 1.6 6"/><path d="M3 5v5h5"/></g>
     <g id="i-alert" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16.2h.01"/></g>
   </defs>
 </svg>
@@ -866,15 +907,18 @@
       </button>
     </nav>
 
+    <div class="theme-switch" role="radiogroup" aria-label="Design">
+      <button role="radio" aria-checked="true"  aria-label="Wie das System" data-thema="system" onclick="applyTheme('system')"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-monitor"/></svg></button>
+      <button role="radio" aria-checked="false" aria-label="Hell"           data-thema="light"  onclick="applyTheme('light')"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-sun"/></svg></button>
+      <button role="radio" aria-checked="false" aria-label="Dunkel"         data-thema="dark"   onclick="applyTheme('dark')"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-moon"/></svg></button>
+    </div>
+
     <div class="sidebar-foot">
       <div class="avatar" id="header-avatar">–</div>
       <div class="sidebar-user">
         <span class="sidebar-username" id="header-username"></span>
         <span class="sidebar-role" id="header-role"></span>
       </div>
-      <button class="btn btn-icon" id="theme-toggle" onclick="cycleTheme()">
-        <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-monitor" id="theme-icon"/></svg>
-      </button>
       <button class="btn btn-icon" onclick="doLogout()" title="Abmelden" aria-label="Abmelden">
         <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-logout"/></svg>
       </button>
@@ -985,6 +1029,7 @@
               <button class="pill" role="tab" aria-selected="false" onclick="filterDevices('verf&uuml;gbar', this)">Verf&uuml;gbar</button>
               <button class="pill" role="tab" aria-selected="false" onclick="filterDevices('vergeben', this)">Zugewiesen</button>
               <button class="pill" role="tab" aria-selected="false" onclick="filterDevices('defekt', this)">Defekt</button>
+              <button class="pill" role="tab" aria-selected="false" onclick="filterDevices('archiv', this)">Archiv</button>
             </div>
             <div class="card-tools">
               <span class="search-wrap">
@@ -1030,8 +1075,11 @@
 
         <div class="card">
           <div class="card-header">
-            <h2>Alle Mitarbeiter</h2>
+            <h2 id="employees-card-title">Alle Mitarbeiter</h2>
             <div class="card-tools">
+              <button class="btn btn-ghost btn-sm" id="employees-archiv-btn" onclick="toggleEmployeeArchiv()">
+                <svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-archive"/></svg> Archiv
+              </button>
               <span class="search-wrap">
                 <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-search"/></svg>
                 <input type="text" class="search-box" placeholder="Name, Abteilung, E-Mail&hellip;" oninput="searchEmployees(this.value)" />
@@ -1042,7 +1090,8 @@
             <table>
               <thead><tr>
                 <th>Vorname</th><th>Nachname</th><th class="col-optional">Abteilung</th>
-                <th class="col-optional">E-Mail</th><th class="col-optional">Standort</th><th>Ger&auml;te</th><th></th>
+                <th class="col-optional">E-Mail</th><th class="col-optional">Eintritt</th>
+                <th class="col-optional">Standort</th><th>Ger&auml;te</th><th></th>
               </tr></thead>
               <tbody id="employees-tbody"></tbody>
             </table>
@@ -1066,8 +1115,11 @@
 
         <div class="card">
           <div class="card-header">
-            <h2>Alle Standorte</h2>
+            <h2 id="locations-card-title">Alle Standorte</h2>
             <div class="card-tools">
+              <button class="btn btn-ghost btn-sm" id="locations-archiv-btn" onclick="toggleLocationArchiv()">
+                <svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-archive"/></svg> Archiv
+              </button>
               <span class="search-wrap">
                 <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-search"/></svg>
                 <input type="text" class="search-box" placeholder="Name oder Adresse&hellip;" oninput="searchLocations(this.value)" />
@@ -1234,6 +1286,10 @@
         <input id="employee-email" type="email" placeholder="name@dachbleche24.de" />
       </div>
       <div class="form-group">
+        <label for="employee-start-date">Eintrittsdatum</label>
+        <input id="employee-start-date" type="date" />
+      </div>
+      <div class="form-group">
         <label for="employee-location-id">Standort</label>
         <select id="employee-location-id"><option value="">&mdash; Kein Standort &mdash;</option></select>
       </div>
@@ -1378,6 +1434,9 @@
   // ─── STATE ───────────────────────────────────────────────────────────────────
   let allDevices = [], allEmployees = [], allAssignments = [], allUsers = [], allLocations = [];
   let deviceFilter = 'all', deviceSearch = '', employeeSearch = '', historySearch = '', locationSearch = '';
+  // Archivansichten: das Regelwerk verlangt archivieren statt loeschen, also
+  // muss das Archivierte auch wieder erreichbar sein.
+  let deviceArchiv = false, employeeArchiv = false, locationArchiv = false;
   let currentUser = null;
 
   // ─── ESCAPING ────────────────────────────────────────────────────────────────
@@ -1420,11 +1479,6 @@
   // Drei Zustände: System folgt der Einstellung des Betriebssystems,
   // Hell und Dunkel überschreiben sie. Gespeichert wird pro Browser.
   const THEMES = ['system', 'light', 'dark'];
-  const THEME_META = {
-    system: { icon: 'monitor', label: 'Design: System' },
-    light:  { icon: 'sun',     label: 'Design: Hell' },
-    dark:   { icon: 'moon',    label: 'Design: Dunkel' },
-  };
 
   function readTheme() {
     try { const t = localStorage.getItem('inv-theme'); return THEMES.includes(t) ? t : 'system'; }
@@ -1437,13 +1491,9 @@
     else root.setAttribute('data-theme', theme);
     try { localStorage.setItem('inv-theme', theme); } catch {}
 
-    const meta = THEME_META[theme];
-    const btn = document.getElementById('theme-toggle');
-    if (btn) {
-      btn.title = meta.label;
-      btn.setAttribute('aria-label', meta.label + ' – zum Wechseln klicken');
-      document.getElementById('theme-icon').setAttribute('href', '#i-' + meta.icon);
-    }
+    document.querySelectorAll('.theme-switch button').forEach(btn => {
+      btn.setAttribute('aria-checked', String(btn.dataset.thema === theme));
+    });
     // Adressleiste auf Mobilgeräten mitfärben
     const dunkel = theme === 'dark' ||
       (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -1451,20 +1501,15 @@
     if (tc) tc.setAttribute('content', dunkel ? '#0b0e12' : '#171b21');
   }
 
-  function cycleTheme() {
-    const next = THEMES[(THEMES.indexOf(readTheme()) + 1) % THEMES.length];
-    applyTheme(next);
-    toast(THEME_META[next].label);
-  }
-
   applyTheme(readTheme());
   window.matchMedia('(prefers-color-scheme: dark)')
     .addEventListener('change', () => { if (readTheme() === 'system') applyTheme('system'); });
 
   function updateNavCounts() {
-    document.getElementById('nav-count-devices').textContent   = allDevices.length   || '';
-    document.getElementById('nav-count-employees').textContent = allEmployees.length || '';
-    document.getElementById('nav-count-locations').textContent = allLocations.length || '';
+    // Im Archiv den Zaehler stehen lassen: er benennt den laufenden Bestand.
+    if (!deviceArchiv)   document.getElementById('nav-count-devices').textContent   = allDevices.length   || '';
+    if (!employeeArchiv) document.getElementById('nav-count-employees').textContent = allEmployees.length || '';
+    if (!locationArchiv) document.getElementById('nav-count-locations').textContent = allLocations.length || '';
   }
 
   // ─── API ─────────────────────────────────────────────────────────────────────
@@ -1570,8 +1615,22 @@
 
   function dash() { return '<span class="faint">–</span>'; }
 
+  // Skelettzeilen in der Hoehe der echten Zeilen. aria-hidden, damit
+  // Screenreader keine Platzhalter vorlesen.
+  const SKELETT_BREITEN = ['skelett-lang', 'skelett-mittel', 'skelett-kurz'];
+  function skelett(tbodyId, spalten, zeilen = 5) {
+    const el = document.getElementById(tbodyId);
+    if (!el || el.children.length) return;   // schon Daten da: nicht ueberschreiben
+    el.innerHTML = Array.from({ length: zeilen }, (_, r) =>
+      '<tr aria-hidden="true">' + Array.from({ length: spalten }, (_, c) =>
+        `<td><span class="skelett ${SKELETT_BREITEN[(r + c) % 3]}"></span></td>`
+      ).join('') + '</tr>'
+    ).join('');
+  }
+
   // ─── DASHBOARD ───────────────────────────────────────────────────────────────
   async function loadDashboard() {
+    skelett('dashboard-assignments', 5, 4);
     const [stats, assignments] = await Promise.all([api('GET', '/stats'), api('GET', '/assignments')]);
 
     const total = Number(stats.total_devices) || 0;
@@ -1604,7 +1663,7 @@
     const active = assignments.filter(a => !a.returned_at);
     const tbody = document.getElementById('dashboard-assignments');
     if (!active.length) {
-      tbody.innerHTML = emptyRow(5, 'Keine aktiven Zuweisungen', 'Weise unter „Geräte" ein Gerät einem Mitarbeiter zu.', 'assign');
+      tbody.innerHTML = emptyRow(5, 'Keine aktiven Zuweisungen', 'Weise unter „Geräte“ ein Gerät einem Mitarbeiter zu.', 'assign');
       return;
     }
     tbody.innerHTML = active.map(a => `
@@ -1621,16 +1680,20 @@
 
   // ─── GERÄTE ──────────────────────────────────────────────────────────────────
   async function loadDevices() {
-    allDevices = await api('GET', '/devices');
+    skelett('devices-tbody', 10, 6);
+    allDevices = await api('GET', '/devices' + (deviceArchiv ? '?archiviert=1' : ''));
     updateNavCounts();
     renderDevices();
   }
 
-  function filterDevices(f, el) {
-    deviceFilter = f;
+  async function filterDevices(f, el) {
     document.querySelectorAll('.filter-pills .pill').forEach(p => p.setAttribute('aria-selected', 'false'));
     el.setAttribute('aria-selected', 'true');
-    renderDevices();
+    const warArchiv = deviceArchiv;
+    deviceArchiv = (f === 'archiv');
+    deviceFilter = deviceArchiv ? 'all' : f;
+    if (warArchiv !== deviceArchiv) await loadDevices();   // andere Datenmenge
+    else renderDevices();
   }
 
   function searchDevices(q) { deviceSearch = q.toLowerCase(); renderDevices(); }
@@ -1666,10 +1729,11 @@
         <td class="col-optional zahl">${formatPrice(d.purchase_price)}</td>
         <td>
           <div class="row-actions">
+            ${deviceArchiv ? `<button class="btn btn-sm btn-ghost admin-only" onclick="restoreEintrag('devices', ${d.id}, '${escArg(d.name)}')" title="Wiederherstellen">${icon('restore')} <span class="btn-label">Wiederherstellen</span></button>` : `
             ${d.status === 'verfügbar' ? `<button class="btn btn-sm btn-success" onclick="openAssignModal(${d.id}, '${escArg(d.name)}')" title="Zuweisen">${icon('assign')} <span class="btn-label">Zuweisen</span></button>` : ''}
             ${d.status === 'vergeben' && d.assignment_id ? `<button class="btn btn-sm btn-warning" onclick="returnDevice(${d.assignment_id})" title="Zurücknehmen">${icon('return')} <span class="btn-label">Zurück</span></button>` : ''}
             <button class="btn btn-icon admin-only" onclick="openDeviceModal(${d.id})" title="Bearbeiten" aria-label="Bearbeiten">${icon('edit')}</button>
-            <button class="btn btn-icon danger admin-only" onclick="deleteDevice(${d.id}, '${escArg(d.name)}')" title="Löschen" aria-label="Löschen">${icon('trash')}</button>
+            <button class="btn btn-icon danger admin-only" onclick="deleteDevice(${d.id}, '${escArg(d.name)}')" title="Archivieren" aria-label="Archivieren">${icon('archive')}</button>`}
           </div>
         </td>
       </tr>`).join('');
@@ -1718,22 +1782,30 @@
   }
 
   async function deleteDevice(id, name) {
-    if (!await confirmDialog({ titel: 'Gerät löschen?', text: `„${name}“ wird dauerhaft aus dem Inventar entfernt. Der Zuweisungsverlauf bleibt erhalten.`, aktion: 'Löschen', gefahr: true })) return;
+    if (!await confirmDialog({ titel: 'Gerät archivieren?', text: `„${name}“ verschwindet aus dem laufenden Bestand. Der Zuweisungsverlauf bleibt vollständig erhalten, und du kannst das Gerät im Archiv jederzeit zurückholen.`, aktion: 'Archivieren' })) return;
     try {
       await api('DELETE', '/devices/' + id);
       await loadDevices();
-      toast('Gerät gelöscht');
+      toast('Gerät archiviert');
     } catch (e) { toast(e.message, 'error'); }
   }
 
   // ─── MITARBEITER ─────────────────────────────────────────────────────────────
   async function loadEmployees() {
-    allEmployees = await api('GET', '/employees');
+    skelett('employees-tbody', 8, 5);
+    allEmployees = await api('GET', '/employees' + (employeeArchiv ? '?archiviert=1' : ''));
     updateNavCounts();
     renderEmployees();
   }
 
   function searchEmployees(q) { employeeSearch = q.toLowerCase(); renderEmployees(); }
+
+  async function toggleEmployeeArchiv() {
+    employeeArchiv = !employeeArchiv;
+    document.getElementById('employees-card-title').textContent = employeeArchiv ? 'Archivierte Mitarbeiter' : 'Alle Mitarbeiter';
+    document.getElementById('employees-archiv-btn').lastChild.textContent = employeeArchiv ? ' Bestand' : ' Archiv';
+    await loadEmployees();
+  }
 
   function fullName(e) {
     return [e.first_name || e.name || '', e.last_name || ''].filter(Boolean).join(' ').trim() || 'Unbenannt';
@@ -1751,8 +1823,8 @@
     const tbody = document.getElementById('employees-tbody');
     if (!employees.length) {
       tbody.innerHTML = allEmployees.length
-        ? emptyRow(7, 'Keine Treffer', 'Andere Suche führt vielleicht weiter.', 'search')
-        : emptyRow(7, 'Noch keine Mitarbeiter', 'Lege den ersten Mitarbeiter an oder importiere eine Liste.', 'users');
+        ? emptyRow(8, 'Keine Treffer', 'Andere Suche führt vielleicht weiter.', 'search')
+        : emptyRow(8, 'Noch keine Mitarbeiter', 'Lege den ersten Mitarbeiter an oder importiere eine Liste.', 'users');
       return;
     }
     tbody.innerHTML = employees.map(e => `
@@ -1761,12 +1833,14 @@
         <td>${esc(e.last_name) || dash()}</td>
         <td class="col-optional"><span class="dim">${esc(e.department) || '–'}</span></td>
         <td class="col-optional">${e.email ? `<a href="mailto:${esc(e.email)}">${esc(e.email)}</a>` : dash()}</td>
+        <td class="col-optional">${e.start_date ? `<span class="dim">${esc(formatDate(e.start_date))}</span>` : dash()}</td>
         <td class="col-optional">${e.location_name ? `<span class="dim">${esc(e.location_name)}</span>` : dash()}</td>
         <td>${e.device_count > 0 ? `<span class="badge badge-blue badge-plain">${e.device_count} Gerät${e.device_count > 1 ? 'e' : ''}</span>` : dash()}</td>
         <td>
           <div class="row-actions">
+            ${employeeArchiv ? `<button class="btn btn-sm btn-ghost admin-only" onclick="restoreEintrag('employees', ${e.id}, '${escArg(fullName(e))}')" title="Wiederherstellen">${icon('restore')} <span class="btn-label">Wiederherstellen</span></button>` : `
             <button class="btn btn-icon admin-only" onclick="openEmployeeModal(${e.id})" title="Bearbeiten" aria-label="Bearbeiten">${icon('edit')}</button>
-            <button class="btn btn-icon danger admin-only" onclick="deleteEmployee(${e.id}, '${escArg(fullName(e))}')" title="Löschen" aria-label="Löschen">${icon('trash')}</button>
+            <button class="btn btn-icon danger admin-only" onclick="deleteEmployee(${e.id}, '${escArg(fullName(e))}')" title="Archivieren" aria-label="Archivieren">${icon('archive')}</button>`}
           </div>
         </td>
       </tr>`).join('');
@@ -1780,6 +1854,7 @@
     document.getElementById('employee-last-name').value = e ? (e.last_name || '') : '';
     document.getElementById('employee-department').value = e ? (e.department || '') : '';
     document.getElementById('employee-email').value = e ? (e.email || '') : '';
+    document.getElementById('employee-start-date').value = e ? (e.start_date || '') : '';
     fillLocationSelect('employee-location-id', e?.location_id || null);
     document.getElementById('employee-modal').classList.remove('hidden');
     setTimeout(() => document.getElementById('employee-first-name').focus(), 50);
@@ -1793,6 +1868,7 @@
       last_name: document.getElementById('employee-last-name').value.trim() || null,
       department: document.getElementById('employee-department').value.trim(),
       email: document.getElementById('employee-email').value.trim(),
+      start_date: document.getElementById('employee-start-date').value || null,
       location_id: locVal ? parseInt(locVal) : null,
     };
     // Der Server verlangt first_name – vorher wurde hier auf body.name geprüft,
@@ -1808,11 +1884,28 @@
   }
 
   async function deleteEmployee(id, name) {
-    if (!await confirmDialog({ titel: 'Mitarbeiter löschen?', text: `„${name}“ wird dauerhaft entfernt. Zugewiesene Geräte verlieren ihre Zuordnung.`, aktion: 'Löschen', gefahr: true })) return;
+    if (!await confirmDialog({ titel: 'Mitarbeiter archivieren?', text: `„${name}“ verschwindet aus den Listen. Der Zuweisungsverlauf bleibt erhalten, und du kannst den Eintrag im Archiv zurückholen.`, aktion: 'Archivieren' })) return;
     try {
       await api('DELETE', '/employees/' + id);
       await loadEmployees();
-      toast('Mitarbeiter gelöscht');
+      toast('Mitarbeiter archiviert');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  // ─── WIEDERHERSTELLEN ────────────────────────────────────────────────────────
+  const ARCHIV_LADER = { devices: () => loadDevices(), employees: () => loadEmployees(), locations: () => loadLocations() };
+  const ARCHIV_WORT  = { devices: 'Gerät', employees: 'Mitarbeiter', locations: 'Standort' };
+
+  async function restoreEintrag(bereich, id, name) {
+    if (!await confirmDialog({
+      titel: ARCHIV_WORT[bereich] + ' wiederherstellen?',
+      text: `„${name}“ erscheint danach wieder im laufenden Bestand.`,
+      aktion: 'Wiederherstellen',
+    })) return;
+    try {
+      await api('PUT', '/' + bereich + '/' + id + '/restore');
+      await ARCHIV_LADER[bereich]();
+      toast(ARCHIV_WORT[bereich] + ' wiederhergestellt');
     } catch (e) { toast(e.message, 'error'); }
   }
 
@@ -1855,6 +1948,7 @@
 
   // ─── VERLAUF ─────────────────────────────────────────────────────────────────
   async function loadHistory() {
+    skelett('history-tbody', 6, 5);
     allAssignments = await api('GET', '/assignments');
     renderHistory();
   }
@@ -1890,6 +1984,7 @@
 
   // ─── BENUTZERVERWALTUNG ──────────────────────────────────────────────────────
   async function loadUsers() {
+    skelett('users-tbody', 4, 3);
     allUsers = await api('GET', '/users');
     renderUsers();
   }
@@ -2003,12 +2098,20 @@
   }
 
   async function loadLocations() {
-    allLocations = await api('GET', '/locations');
+    skelett('locations-tbody', 5, 4);
+    allLocations = await api('GET', '/locations' + (locationArchiv ? '?archiviert=1' : ''));
     updateNavCounts();
     renderLocations();
   }
 
   function searchLocations(q) { locationSearch = q.toLowerCase(); renderLocations(); }
+
+  async function toggleLocationArchiv() {
+    locationArchiv = !locationArchiv;
+    document.getElementById('locations-card-title').textContent = locationArchiv ? 'Archivierte Standorte' : 'Alle Standorte';
+    document.getElementById('locations-archiv-btn').lastChild.textContent = locationArchiv ? ' Bestand' : ' Archiv';
+    await loadLocations();
+  }
 
   function renderLocations() {
     let locs = allLocations;
@@ -2034,8 +2137,9 @@
         <td>${l.device_count > 0 ? `<span class="badge badge-gray badge-plain">${l.device_count}</span>` : '<span class="faint">0</span>'}</td>
         <td>
           <div class="row-actions">
+            ${locationArchiv ? `<button class="btn btn-sm btn-ghost admin-only" onclick="restoreEintrag('locations', ${l.id}, '${escArg(l.name)}')" title="Wiederherstellen">${icon('restore')} <span class="btn-label">Wiederherstellen</span></button>` : `
             <button class="btn btn-icon admin-only" onclick="openLocationModal(${l.id})" title="Bearbeiten" aria-label="Bearbeiten">${icon('edit')}</button>
-            <button class="btn btn-icon danger admin-only" onclick="deleteLocation(${l.id}, '${escArg(l.name)}')" title="Löschen" aria-label="Löschen">${icon('trash')}</button>
+            <button class="btn btn-icon danger admin-only" onclick="deleteLocation(${l.id}, '${escArg(l.name)}')" title="Archivieren" aria-label="Archivieren">${icon('archive')}</button>`}
           </div>
         </td>
       </tr>`).join('');
@@ -2070,11 +2174,11 @@
   }
 
   async function deleteLocation(id, name) {
-    if (!await confirmDialog({ titel: 'Standort löschen?', text: `„${name}“ wird entfernt. Mitarbeiter und Geräte an diesem Standort verlieren ihre Zuordnung.`, aktion: 'Löschen', gefahr: true })) return;
+    if (!await confirmDialog({ titel: 'Standort archivieren?', text: `„${name}“ wird nicht mehr gelistet. Mitarbeiter und Geräte behalten ihre Zuordnung, es wird nichts stillschweigend umgeschrieben.`, aktion: 'Archivieren' })) return;
     try {
       await api('DELETE', '/locations/' + id);
       await loadLocations();
-      toast('Standort gelöscht');
+      toast('Standort archiviert');
     } catch (e) { toast(e.message, 'error'); }
   }
 
@@ -2121,9 +2225,9 @@
                 ['ThinkPad X1','Laptop','SN-001','2024-01-15',1299.00,''],
                 ['Dell U2722D','Monitor','SN-002','',429.00,'']],
     // Spaltennamen passend zum Server, der vorname/nachname erwartet.
-    employees: [['Vorname','Nachname','Abteilung','E-Mail'],
-                ['Max','Mustermann','IT','max@dachbleche24.de'],
-                ['Erika','Musterfrau','Vertrieb','erika@dachbleche24.de']],
+    employees: [['Vorname','Nachname','Abteilung','E-Mail','Eintrittsdatum'],
+                ['Max','Mustermann','IT','max@dachbleche24.de','2024-01-15'],
+                ['Erika','Musterfrau','Vertrieb','erika@dachbleche24.de','']],
   };
 
   function downloadTemplate(type) {

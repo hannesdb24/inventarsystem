@@ -1,2 +1,6 @@
 node_modules/
 inventar.json
+backup-*.json
+
+# Enthaelt echte Mitarbeiter- und Geraetedaten. Repo ist oeffentlich.
+import-laptops.json
