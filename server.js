@@ -435,6 +435,41 @@ app.get('/api/devices', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Detailansicht eines Geräts: die vollständige Besitzhistorie, neueste zuerst.
+// Bewusst ohne Filter auf archived_at — sonst wäre die Historie eines
+// archivierten Geräts leer, und gerade dort will man nachsehen können.
+app.get('/api/devices/:id/details', async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    if (usePostgres()) {
+      const dev = (await pool.query(`
+        SELECT d.*, l.name AS location_name
+        FROM devices d LEFT JOIN locations l ON l.id = d.location_id
+        WHERE d.id = $1
+      `, [id])).rows[0];
+      if (!dev) return res.status(404).json({ error: 'Nicht gefunden' });
+      const history = (await pool.query(`
+        SELECT a.id, a.assigned_at, a.returned_at, a.notes,
+          e.id AS employee_id, e.name AS employee_name, e.department
+        FROM assignments a JOIN employees e ON e.id = a.employee_id
+        WHERE a.device_id = $1
+        ORDER BY a.assigned_at DESC, a.id DESC
+      `, [id])).rows;
+      return res.json({ ...dev, history });
+    }
+    const db = loadDB();
+    const dev = db.devices.find(d => d.id === id);
+    if (!dev) return res.status(404).json({ error: 'Nicht gefunden' });
+    const history = db.assignments.filter(a => a.device_id === id)
+      .sort((x, y) => new Date(y.assigned_at) - new Date(x.assigned_at) || y.id - x.id)
+      .map(a => {
+        const e = db.employees.find(x => x.id === a.employee_id) || {};
+        return { id: a.id, assigned_at: a.assigned_at, returned_at: a.returned_at, notes: a.notes, employee_id: e.id, employee_name: e.name, department: e.department };
+      });
+    res.json({ ...dev, location_name: db.locations.find(l => l.id === dev.location_id)?.name || null, history });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/devices', requireAdmin, async (req, res) => {
   const { name, type, serial_number, purchase_date, purchase_price, notes, location_id, inventory_number } = req.body;
   if (!name) return res.status(400).json({ error: 'Name erforderlich' });

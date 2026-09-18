@@ -1334,6 +1334,19 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="device-detail-modal">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <h3 id="device-detail-title">Ger&auml;t</h3>
+      <button class="modal-close" onclick="closeModal('device-detail-modal')" aria-label="Schlie&szlig;en"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body" id="device-detail-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('device-detail-modal')">Schlie&szlig;en</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay hidden" id="employee-detail-modal">
   <div class="modal" style="max-width:700px">
     <div class="modal-header">
@@ -1765,7 +1778,9 @@
     tbody.innerHTML = devices.map(d => `
       <tr>
         <td>${d.inventory_number ? `<span class="inv-no">${esc(d.inventory_number)}</span>` : dash()}</td>
-        <td><strong>${esc(d.name)}</strong></td>
+        <th scope="row" class="zeilenkopf">
+          <button class="zeilenlink" onclick="showDeviceDetails(${d.id})">${esc(d.name)}</button>
+        </th>
         <td class="col-optional"><span class="dim">${esc(d.type) || '–'}</span></td>
         <td class="col-optional">${d.serial_number ? `<span class="serial">${esc(d.serial_number)}</span>` : dash()}</td>
         <td>${statusBadge(d.status)}</td>
@@ -1787,6 +1802,50 @@
           </div>
         </td>
       </tr>`).join('');
+  }
+
+  async function showDeviceDetails(id) {
+    try {
+      const dev = await api('GET', '/devices/' + id + '/details');
+      document.getElementById('device-detail-title').textContent = dev.name;
+      const zeilen = dev.history.map(h => `<tr>
+          <td><strong>${esc(h.employee_name) || 'Unbekannt'}</strong>${h.department ? ` <span class="faint">${esc(h.department)}</span>` : ''}</td>
+          <td><span class="dim">${formatDate(h.assigned_at)}</span></td>
+          <td>${h.returned_at
+            ? `<span class="dim">${formatDate(h.returned_at)}</span>`
+            : '<span class="badge badge-orange badge-plain">läuft</span>'}</td>
+          <td><span class="dim">${dauer(h.assigned_at, h.returned_at)}</span></td>
+        </tr>`).join('');
+      document.getElementById('device-detail-body').innerHTML = `
+        <p class="hero-note">
+          ${esc(dev.inventory_number) || 'ohne Inv.-Nr.'}${dev.serial_number ? ` · ${esc(dev.serial_number)}` : ''}
+          ${dev.type ? ` · ${esc(dev.type)}` : ''}
+        </p>
+        <p class="hero-note">
+          ${statusBadge(dev.status)}
+          ${dev.location_name ? ` ${esc(dev.location_name)}` : ''}${dev.storage_note ? ` · ${esc(dev.storage_note)}` : ''}
+        </p>
+        ${dev.notes ? `<p class="hero-note" style="font-style:italic">${esc(dev.notes)}</p>` : ''}
+        <div>
+          <h4>Besitzverlauf (${dev.history.length})</h4>
+          <div class="table-wrap">
+            <table><thead><tr><th>Mitarbeiter</th><th>Von</th><th>Bis</th><th>Dauer</th></tr></thead>
+            <tbody>${zeilen || `<tr><td colspan="4"><div class="empty" style="padding:22px"><p class="empty-note">Noch nie zugewiesen</p></div></td></tr>`}</tbody></table>
+          </div>
+        </div>`;
+      document.getElementById('device-detail-modal').classList.remove('hidden');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  // Grobe Dauer in Tagen bzw. Monaten — genauer muss es fuer eine Historie nicht sein.
+  function dauer(von, bis) {
+    if (!von) return '–';
+    const tage = Math.round((new Date(bis || Date.now()) - new Date(von)) / 86400000);
+    if (tage < 1) return 'heute';
+    if (tage < 60) return `${tage} Tage`;
+    const monate = Math.round(tage / 30.44);
+    if (monate < 24) return `${monate} Monate`;
+    return `${(tage / 365.25).toFixed(1).replace('.', ',')} Jahre`;
   }
 
   function openDeviceModal(id) {
