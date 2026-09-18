@@ -202,7 +202,7 @@
       padding: 22px 20px 18px;
       display: flex; flex-direction: column; gap: 7px;
     }
-    .sidebar-brand .eyebrow { color: var(--shell-muted); font-size: 10px; letter-spacing: 1.6px; }
+    .sidebar-brand .eyebrow { color: var(--shell-muted); }
 
     .sidebar-nav {
       position: relative; z-index: 1;
@@ -212,7 +212,7 @@
     }
     .nav-section {
       padding: 16px 8px 6px;
-      font-size: 10px; font-weight: 500; letter-spacing: 1.6px;
+      font-size: 11px; font-weight: 500; letter-spacing: .12em;
       text-transform: uppercase; color: var(--shell-muted);
     }
     .nav-item {
@@ -570,7 +570,7 @@
        ═══════════════════════════════════════════════════════════════════════ */
     .form-group { display: flex; flex-direction: column; gap: 6px; }
     label { font-size: 13px; font-weight: 500; color: var(--foreground); }
-    .hint { font-size: 11.5px; color: var(--faint-foreground); }
+    .hint { font-size: 12px; color: var(--muted-foreground); }
 
     input, select, textarea {
       width: 100%; height: var(--h-control); padding: 0 12px;
@@ -679,7 +679,7 @@
       background: var(--card-raised); color: var(--foreground);
       border: 1px solid var(--border-strong); border-radius: var(--radius-control);
       box-shadow: var(--shadow-float);
-      font-size: 13.5px;
+      font-size: 14px;
       transform: translateY(20px); opacity: 0; pointer-events: none;
       transition: transform .3s var(--ease-fluid), opacity .3s var(--ease-fluid);
     }
@@ -759,8 +759,6 @@
       .mobile-bar { display: flex; }
       main { padding: 20px 20px 56px; }
       .hero { grid-template-columns: 1fr; gap: 22px; padding: 22px; }
-      .hero-value { font-size: 42px; }
-      .page-head h1 { font-size: 23px; }
       .page-head { margin-bottom: 20px; }
       .search-box { width: 100%; }
       .search-wrap { flex: 1; min-width: 150px; }
@@ -1248,6 +1246,11 @@
         <select id="device-location-id"><option value="">&mdash; Kein Standort &mdash;</option></select>
       </div>
       <div class="form-group">
+        <label for="device-storage-note">Aufbewahrung</label>
+        <input id="device-storage-note" type="text" placeholder="z.B. Safe Nadine" />
+        <p class="hint">Wo genau das Ger&auml;t am Standort liegt.</p>
+      </div>
+      <div class="form-group">
         <label for="device-notes">Notizen</label>
         <textarea id="device-notes" placeholder="Optionale Anmerkungen&hellip;"></textarea>
       </div>
@@ -1297,6 +1300,49 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('employee-modal')">Abbrechen</button>
       <button class="btn btn-primary" onclick="saveEmployee()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="return-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Ger&auml;t zur&uuml;cknehmen</h3>
+      <button class="modal-close" onclick="closeModal('return-modal')" aria-label="Schlie&szlig;en"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="return-assignment-id" />
+      <div class="form-group">
+        <label for="return-device-name">Ger&auml;t</label>
+        <input id="return-device-name" type="text" disabled />
+      </div>
+      <div class="form-group">
+        <label for="return-location-id">Standort *</label>
+        <select id="return-location-id"><option value="">&mdash; Standort w&auml;hlen &mdash;</option></select>
+        <p class="hint">Wohin das Ger&auml;t ab jetzt geh&ouml;rt.</p>
+      </div>
+      <div class="form-group">
+        <label for="return-storage-note">Aufbewahrung *</label>
+        <input id="return-storage-note" type="text" placeholder="z.B. Safe Nadine" />
+        <p class="hint">Wo genau es dort liegt.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('return-modal')">Abbrechen</button>
+      <button class="btn btn-primary" onclick="saveReturn()">Zur&uuml;cknehmen</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="employee-detail-modal">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <h3 id="employee-detail-title">Mitarbeiter</h3>
+      <button class="modal-close" onclick="closeModal('employee-detail-modal')" aria-label="Schlie&szlig;en"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body" id="employee-detail-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('employee-detail-modal')">Schlie&szlig;en</button>
     </div>
   </div>
 </div>
@@ -1673,7 +1719,7 @@
         <td class="col-optional"><span class="dim">${esc(a.department) || '–'}</span></td>
         <td class="col-optional"><span class="dim">${formatDate(a.assigned_at)}</span></td>
         <td><div class="row-actions">
-          <button class="btn btn-sm btn-warning" onclick="returnDevice(${a.id})" title="Zurückgeben">${icon('return')} <span class="btn-label">Zurückgeben</span></button>
+          <button class="btn btn-sm btn-warning" onclick="returnDevice(${a.id}, '${escArg(a.device_name)}')" title="Zurückgeben">${icon('return')} <span class="btn-label">Zurückgeben</span></button>
         </div></td>
       </tr>`).join('');
   }
@@ -1723,15 +1769,19 @@
         <td class="col-optional"><span class="dim">${esc(d.type) || '–'}</span></td>
         <td class="col-optional">${d.serial_number ? `<span class="serial">${esc(d.serial_number)}</span>` : dash()}</td>
         <td>${statusBadge(d.status)}</td>
-        <td class="col-narrow">${d.assigned_to_name ? esc(d.assigned_to_name) : dash()}</td>
-        <td class="col-optional">${d.location_name ? `<span class="dim">${esc(d.location_name)}</span>` : dash()}</td>
+        <td class="col-narrow">${d.assigned_to_name
+          ? esc(d.assigned_to_name)
+          : (d.last_employee_name ? `<span class="faint">zuletzt ${esc(d.last_employee_name)}</span>` : dash())}</td>
+        <td class="col-optional">${d.location_name
+          ? `<span class="dim">${esc(d.location_name)}</span>${d.storage_note ? `<span class="faint" style="display:block">${esc(d.storage_note)}</span>` : ''}`
+          : dash()}</td>
         <td class="col-optional"><span class="dim">${formatDate(d.purchase_date)}</span></td>
         <td class="col-optional zahl">${formatPrice(d.purchase_price)}</td>
         <td>
           <div class="row-actions">
             ${deviceArchiv ? `<button class="btn btn-sm btn-ghost admin-only" onclick="restoreEintrag('devices', ${d.id}, '${escArg(d.name)}')" title="Wiederherstellen">${icon('restore')} <span class="btn-label">Wiederherstellen</span></button>` : `
             ${d.status === 'verfügbar' ? `<button class="btn btn-sm btn-success" onclick="openAssignModal(${d.id}, '${escArg(d.name)}')" title="Zuweisen">${icon('assign')} <span class="btn-label">Zuweisen</span></button>` : ''}
-            ${d.status === 'vergeben' && d.assignment_id ? `<button class="btn btn-sm btn-warning" onclick="returnDevice(${d.assignment_id})" title="Zurücknehmen">${icon('return')} <span class="btn-label">Zurück</span></button>` : ''}
+            ${d.status === 'vergeben' && d.assignment_id ? `<button class="btn btn-sm btn-warning" onclick="returnDevice(${d.assignment_id}, '${escArg(d.name)}')" title="Zurücknehmen">${icon('return')} <span class="btn-label">Zurück</span></button>` : ''}
             <button class="btn btn-icon admin-only" onclick="openDeviceModal(${d.id})" title="Bearbeiten" aria-label="Bearbeiten">${icon('edit')}</button>
             <button class="btn btn-icon danger admin-only" onclick="deleteDevice(${d.id}, '${escArg(d.name)}')" title="Archivieren" aria-label="Archivieren">${icon('archive')}</button>`}
           </div>
@@ -1750,6 +1800,7 @@
     document.getElementById('device-purchase-date').value = d ? (d.purchase_date || '') : '';
     document.getElementById('device-price').value = d ? (d.purchase_price || '') : '';
     document.getElementById('device-notes').value = d ? (d.notes || '') : '';
+    document.getElementById('device-storage-note').value = d ? (d.storage_note || '') : '';
     document.getElementById('device-status').value = d ? d.status : 'verfügbar';
     document.getElementById('device-status-group').style.display = d ? 'flex' : 'none';
     fillLocationSelect('device-location-id', d?.location_id || null);
@@ -1768,6 +1819,7 @@
       purchase_date: document.getElementById('device-purchase-date').value,
       purchase_price: document.getElementById('device-price').value || null,
       notes: document.getElementById('device-notes').value.trim(),
+      storage_note: document.getElementById('device-storage-note').value.trim() || null,
       status: document.getElementById('device-status').value,
       location_id: locVal ? parseInt(locVal) : null,
     };
@@ -1829,7 +1881,9 @@
     }
     tbody.innerHTML = employees.map(e => `
       <tr>
-        <td><strong>${esc(e.first_name || e.name) || dash()}</strong></td>
+        <th scope="row" class="zeilenkopf">
+          <button class="zeilenlink" onclick="showEmployeeDetails(${e.id})">${esc(e.first_name || e.name) || 'Unbenannt'}</button>
+        </th>
         <td>${esc(e.last_name) || dash()}</td>
         <td class="col-optional"><span class="dim">${esc(e.department) || '–'}</span></td>
         <td class="col-optional">${e.email ? `<a href="mailto:${esc(e.email)}">${esc(e.email)}</a>` : dash()}</td>
@@ -1844,6 +1898,49 @@
           </div>
         </td>
       </tr>`).join('');
+  }
+
+  async function showEmployeeDetails(id) {
+    try {
+      const emp = await api('GET', '/employees/' + id + '/details');
+      document.getElementById('employee-detail-title').textContent = fullName(emp);
+      const geraeteRows = emp.devices.length
+        ? emp.devices.map(d => `<tr>
+            <td><strong>${esc(d.name)}</strong>${d.serial_number ? ` <span class="faint">${esc(d.serial_number)}</span>` : ''}</td>
+            <td><span class="dim num">${esc(d.inventory_number) || '–'}</span></td>
+            <td><span class="dim">${formatDate(d.assigned_at)}</span></td>
+            <td><div class="row-actions">
+              <button class="btn btn-sm btn-warning admin-only" onclick="closeModal('employee-detail-modal'); returnDevice(${d.assignment_id}, '${escArg(d.name)}')" title="Zurücknehmen">${icon('return')} <span class="btn-label">Zurücknehmen</span></button>
+            </div></td>
+          </tr>`).join('')
+        : `<tr><td colspan="4"><div class="empty" style="padding:22px"><p class="empty-note">Kein Gerät zugewiesen</p></div></td></tr>`;
+      const verlaufRows = emp.history.length
+        ? emp.history.map(h => `<tr>
+            <td><strong>${esc(h.name)}</strong>${h.serial_number ? ` <span class="faint">${esc(h.serial_number)}</span>` : ''}</td>
+            <td><span class="dim">${formatDate(h.assigned_at)}</span></td>
+            <td><span class="dim">${formatDate(h.returned_at)}</span></td>
+          </tr>`).join('')
+        : '';
+      document.getElementById('employee-detail-body').innerHTML = `
+        <p class="hero-note">
+          ${esc(emp.department) || 'Keine Abteilung'}${emp.location_name ? ` · ${esc(emp.location_name)}` : ''}
+          ${emp.start_date ? ` · seit ${esc(formatDate(emp.start_date))}` : ''}
+        </p>
+        ${emp.email ? `<p class="hero-note"><a href="mailto:${esc(emp.email)}">${esc(emp.email)}</a></p>` : ''}
+        <div>
+          <h4>Aktuelle Geräte (${emp.devices.length})</h4>
+          <div class="table-wrap">
+            <table><thead><tr><th>Gerät</th><th>Inv.-Nr.</th><th>Seit</th><th></th></tr></thead><tbody>${geraeteRows}</tbody></table>
+          </div>
+        </div>
+        ${verlaufRows ? `<div>
+          <h4>Früher zugewiesen (${emp.history.length})</h4>
+          <div class="table-wrap">
+            <table><thead><tr><th>Gerät</th><th>Von</th><th>Bis</th></tr></thead><tbody>${verlaufRows}</tbody></table>
+          </div>
+        </div>` : ''}`;
+      document.getElementById('employee-detail-modal').classList.remove('hidden');
+    } catch (e) { toast(e.message, 'error'); }
   }
 
   function openEmployeeModal(id) {
@@ -1937,12 +2034,38 @@
     } catch (e) { toast(e.message, 'error'); }
   }
 
-  async function returnDevice(assignmentId) {
-    if (!await confirmDialog({ titel: 'Gerät zurückgeben?', text: `Die Zuweisung wird beendet und im Verlauf als zurückgegeben vermerkt. Das Gerät ist danach wieder verfügbar.`, aktion: 'Zurückgeben' })) return;
+  // Bei der Rücknahme wird festgehalten, wo das Gerät ab jetzt liegt.
+  async function returnDevice(assignmentId, geraetName) {
+    document.getElementById('return-assignment-id').value = assignmentId;
+    document.getElementById('return-device-name').value = geraetName || '';
+    document.getElementById('return-storage-note').value = '';
+    // Frisch laden statt allLocations: das enthält in der Archivansicht die
+    // archivierten Standorte, die hier nicht zur Wahl stehen dürfen.
+    const sel = document.getElementById('return-location-id');
+    sel.innerHTML = '<option value="">— Standort wählen —</option>';
     try {
-      await api('PUT', '/assignments/' + assignmentId + '/return');
-      await Promise.all([loadDevices(), loadDashboard()]);
-      toast('Gerät zurückgegeben');
+      const locs = await api('GET', '/locations');
+      sel.innerHTML = '<option value="">— Standort wählen —</option>' +
+        locs.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
+    } catch (e) { toast(e.message, 'error'); return; }
+    document.getElementById('return-modal').classList.remove('hidden');
+    setTimeout(() => sel.focus(), 50);
+  }
+
+  async function saveReturn() {
+    const assignmentId = document.getElementById('return-assignment-id').value;
+    const locVal = document.getElementById('return-location-id').value;
+    const notiz = document.getElementById('return-storage-note').value.trim();
+    if (!locVal) { toast('Standort erforderlich', 'error'); return; }
+    if (!notiz) { toast('Aufbewahrung erforderlich', 'error'); return; }
+    try {
+      await api('PUT', '/assignments/' + assignmentId + '/return', {
+        location_id: parseInt(locVal),
+        storage_note: notiz,
+      });
+      closeModal('return-modal');
+      await Promise.all([loadDevices(), loadEmployees(), loadDashboard()]);
+      toast('Gerät zurückgenommen');
     } catch (e) { toast(e.message, 'error'); }
   }
 

@@ -137,6 +137,7 @@ async function initDB() {
         purchase_price NUMERIC,
         status TEXT DEFAULT 'verfügbar',
         notes TEXT,
+        storage_note TEXT,
         location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
@@ -157,6 +158,8 @@ async function initDB() {
     await pool.query(`UPDATE employees SET first_name = SPLIT_PART(name, ' ', 1), last_name = NULLIF(TRIM(SUBSTRING(name FROM POSITION(' ' IN name) + 1)), '') WHERE first_name IS NULL AND name IS NOT NULL`);
     await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL');
     await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS inventory_number TEXT UNIQUE');
+    // Aufbewahrungsort eines zurueckgenommenen Geraets, z. B. "Safe Nadine".
+    await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS storage_note TEXT');
     // Archivieren statt Loeschen (design/DESIGN.md). Ohne DEFAULT, damit
     // bestehende Zeilen NULL bleiben und weiterhin in den Listen erscheinen.
     await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ');
@@ -264,6 +267,50 @@ app.get('/api/employees', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Detailansicht eines Mitarbeiters: laufende Geräte plus Rückgabeverlauf.
+app.get('/api/employees/:id/details', async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    if (usePostgres()) {
+      const emp = (await pool.query(`
+        SELECT e.*, l.name AS location_name
+        FROM employees e LEFT JOIN locations l ON l.id = e.location_id
+        WHERE e.id = $1
+      `, [id])).rows[0];
+      if (!emp) return res.status(404).json({ error: 'Nicht gefunden' });
+      const devices = (await pool.query(`
+        SELECT d.id, d.name, d.type, d.serial_number, d.inventory_number, d.status,
+          a.id AS assignment_id, a.assigned_at
+        FROM assignments a JOIN devices d ON d.id = a.device_id
+        WHERE a.employee_id = $1 AND a.returned_at IS NULL
+        ORDER BY d.name
+      `, [id])).rows;
+      const history = (await pool.query(`
+        SELECT d.name, d.serial_number, d.inventory_number, a.assigned_at, a.returned_at
+        FROM assignments a JOIN devices d ON d.id = a.device_id
+        WHERE a.employee_id = $1 AND a.returned_at IS NOT NULL
+        ORDER BY a.returned_at DESC
+      `, [id])).rows;
+      return res.json({ ...emp, devices, history });
+    }
+    const db = loadDB();
+    const emp = db.employees.find(e => e.id === id);
+    if (!emp) return res.status(404).json({ error: 'Nicht gefunden' });
+    const geraet = (a) => db.devices.find(d => d.id === a.device_id) || {};
+    const devices = db.assignments.filter(a => a.employee_id === id && !a.returned_at).map(a => {
+      const d = geraet(a);
+      return { id: d.id, name: d.name, type: d.type, serial_number: d.serial_number, inventory_number: d.inventory_number, status: d.status, assignment_id: a.id, assigned_at: a.assigned_at };
+    });
+    const history = db.assignments.filter(a => a.employee_id === id && a.returned_at)
+      .sort((x, y) => new Date(y.returned_at) - new Date(x.returned_at))
+      .map(a => {
+        const d = geraet(a);
+        return { name: d.name, serial_number: d.serial_number, inventory_number: d.inventory_number, assigned_at: a.assigned_at, returned_at: a.returned_at };
+      });
+    res.json({ ...emp, location_name: db.locations.find(l => l.id === emp.location_id)?.name || null, devices, history });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/employees', requireAdmin, async (req, res) => {
   const { first_name, last_name, department, email, start_date, location_id } = req.body;
   if (!first_name) return res.status(400).json({ error: 'Vorname erforderlich' });
@@ -358,11 +405,18 @@ app.get('/api/devices', async (req, res) => {
     if (usePostgres()) {
       const { rows } = await pool.query(`
         SELECT d.*, l.name AS location_name, e.name AS assigned_to_name, e.id AS assigned_to_id,
-          a.assigned_at, a.id AS assignment_id
+          a.assigned_at, a.id AS assignment_id,
+          frueher.name AS last_employee_name, frueher.returned_at AS last_returned_at
         FROM devices d
         LEFT JOIN locations l ON l.id = d.location_id
         LEFT JOIN assignments a ON a.device_id = d.id AND a.returned_at IS NULL
         LEFT JOIN employees e ON e.id = a.employee_id
+        LEFT JOIN LATERAL (
+          SELECT e2.name, a2.returned_at
+          FROM assignments a2 JOIN employees e2 ON e2.id = a2.employee_id
+          WHERE a2.device_id = d.id AND a2.returned_at IS NOT NULL
+          ORDER BY a2.returned_at DESC LIMIT 1
+        ) frueher ON TRUE
         WHERE d.archived_at IS ${zeigeArchiv(req) ? 'NOT NULL' : 'NULL'}
         ORDER BY d.name
       `);
@@ -372,7 +426,11 @@ app.get('/api/devices', async (req, res) => {
     res.json(db.devices.filter(d => zeigeArchiv(req) ? d.archived_at : !d.archived_at).map(d => {
       const a = db.assignments.find(x => x.device_id === d.id && !x.returned_at);
       const e = a ? db.employees.find(x => x.id === a.employee_id) : null;
-      return { ...d, location_name: db.locations.find(l => l.id === d.location_id)?.name || null, assigned_to_name: e?.name || null, assigned_to_id: e?.id || null, assigned_at: a?.assigned_at || null, assignment_id: a?.id || null };
+      const frueher = db.assignments
+        .filter(x => x.device_id === d.id && x.returned_at)
+        .sort((x, y) => new Date(y.returned_at) - new Date(x.returned_at))[0];
+      const frueherEmp = frueher ? db.employees.find(x => x.id === frueher.employee_id) : null;
+      return { ...d, location_name: db.locations.find(l => l.id === d.location_id)?.name || null, assigned_to_name: e?.name || null, assigned_to_id: e?.id || null, assigned_at: a?.assigned_at || null, assignment_id: a?.id || null, last_employee_name: frueherEmp?.name || null, last_returned_at: frueher?.returned_at || null };
     }).sort((a, b) => a.name.localeCompare(b.name)));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -407,12 +465,12 @@ app.post('/api/devices', requireAdmin, async (req, res) => {
 
 app.put('/api/devices/:id', requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id);
-  const { name, type, serial_number, purchase_date, purchase_price, notes, status, location_id, inventory_number } = req.body;
+  const { name, type, serial_number, purchase_date, purchase_price, notes, status, location_id, inventory_number, storage_note } = req.body;
   try {
     if (usePostgres()) {
       const { rows } = await pool.query(
-        'UPDATE devices SET name=$1, type=$2, serial_number=$3, purchase_date=$4, purchase_price=$5, notes=$6, status=$7, location_id=$8, inventory_number=$9 WHERE id=$10 RETURNING *',
-        [name, type || null, serial_number || null, purchase_date || null, purchase_price || null, notes || null, status || 'verfügbar', location_id || null, inventory_number || null, id]
+        'UPDATE devices SET name=$1, type=$2, serial_number=$3, purchase_date=$4, purchase_price=$5, notes=$6, status=$7, location_id=$8, inventory_number=$9, storage_note=$10 WHERE id=$11 RETURNING *',
+        [name, type || null, serial_number || null, purchase_date || null, purchase_price || null, notes || null, status || 'verfügbar', location_id || null, inventory_number || null, storage_note || null, id]
       );
       if (!rows.length) return res.status(404).json({ error: 'Nicht gefunden' });
       const a = (await pool.query('SELECT a.*, e.name AS employee_name FROM assignments a JOIN employees e ON e.id=a.employee_id WHERE a.device_id=$1 AND a.returned_at IS NULL', [id])).rows[0];
@@ -426,7 +484,7 @@ app.put('/api/devices/:id', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Seriennummer bereits vorhanden' });
     if (inventory_number && db.devices.some(d => d.inventory_number === inventory_number && d.id !== id))
       return res.status(400).json({ error: 'Inventarnummer bereits vorhanden' });
-    db.devices[idx] = { ...db.devices[idx], name, type: type || null, serial_number: serial_number || null, purchase_date: purchase_date || null, purchase_price: purchase_price ? parseFloat(purchase_price) : null, notes: notes || null, status: status || 'verfügbar', location_id: location_id || null, inventory_number: inventory_number || null };
+    db.devices[idx] = { ...db.devices[idx], name, type: type || null, serial_number: serial_number || null, purchase_date: purchase_date || null, purchase_price: purchase_price ? parseFloat(purchase_price) : null, notes: notes || null, status: status || 'verfügbar', location_id: location_id || null, inventory_number: inventory_number || null, storage_note: storage_note || null };
     saveDB(db);
     const a = db.assignments.find(x => x.device_id === id && !x.returned_at);
     const e = a ? db.employees.find(x => x.id === a.employee_id) : null;
@@ -514,13 +572,21 @@ app.post('/api/assignments', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Bei der Rücknahme wird festgehalten, wo das Gerät ab jetzt liegt. Standort
+// und Aufbewahrungsnotiz (z. B. „Safe Nadine") sind beide Pflicht.
 app.put('/api/assignments/:id/return', async (req, res) => {
   const id = parseInt(req.params.id);
+  const { location_id, storage_note } = req.body || {};
+  if (!location_id) return res.status(400).json({ error: 'Standort erforderlich' });
+  if (!storage_note || !String(storage_note).trim()) return res.status(400).json({ error: 'Aufbewahrung erforderlich' });
   try {
     if (usePostgres()) {
       const { rows } = await pool.query('UPDATE assignments SET returned_at=NOW() WHERE id=$1 AND returned_at IS NULL RETURNING *', [id]);
       if (!rows.length) return res.status(404).json({ error: 'Nicht gefunden oder bereits zurückgegeben' });
-      await pool.query("UPDATE devices SET status='verfügbar' WHERE id=$1", [rows[0].device_id]);
+      await pool.query(
+        "UPDATE devices SET status='verfügbar', location_id=$1, storage_note=$2 WHERE id=$3",
+        [location_id, String(storage_note).trim(), rows[0].device_id]
+      );
       return res.json({ success: true });
     }
     const db = loadDB();
@@ -528,7 +594,11 @@ app.put('/api/assignments/:id/return', async (req, res) => {
     if (!assignment || assignment.returned_at) return res.status(404).json({ error: 'Nicht gefunden' });
     assignment.returned_at = now();
     const device = db.devices.find(d => d.id === assignment.device_id);
-    if (device) device.status = 'verfügbar';
+    if (device) {
+      device.status = 'verfügbar';
+      device.location_id = location_id;
+      device.storage_note = String(storage_note).trim();
+    }
     saveDB(db);
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
