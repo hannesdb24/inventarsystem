@@ -234,7 +234,8 @@ app.get('/api/employees', async (req, res) => {
   try {
     if (usePostgres()) {
       const { rows } = await pool.query(`
-        SELECT e.*, l.name AS location_name, COUNT(a.id)::int AS device_count
+        SELECT e.*, l.name AS location_name, COUNT(a.id)::int AS device_count,
+          (SELECT ${summeSql(WIRKUNG_MITARBEITER)} FROM apparel_movements m WHERE m.employee_id = e.id) AS apparel_count
         FROM employees e
         LEFT JOIN locations l ON l.id = e.location_id
         LEFT JOIN assignments a ON a.employee_id = e.id AND a.returned_at IS NULL
@@ -247,7 +248,8 @@ app.get('/api/employees', async (req, res) => {
     res.json(db.employees.filter(e => zeigeArchiv(req) ? e.archived_at : !e.archived_at).map(e => ({
       ...e,
       location_name: db.locations.find(l => l.id === e.location_id)?.name || null,
-      device_count: db.assignments.filter(a => a.employee_id === e.id && !a.returned_at).length
+      device_count: db.assignments.filter(a => a.employee_id === e.id && !a.returned_at).length,
+      apparel_count: summeJs(db.apparel_movements.filter(m => m.employee_id === e.id), WIRKUNG_MITARBEITER),
     })).sort((a, b) => a.name.localeCompare(b.name)));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

@@ -617,6 +617,18 @@
       box-shadow: inset 0 0 0 1.5px var(--accent);
     }
 
+    /* Kategorie-Kacheln ueber der Kleidungsliste: dieselbe Auswahl-Optik,
+       aber als Flaeche auf dem Grund statt in einer Karte. */
+    .sorten { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .sorten .kachel {
+      background: var(--card); gap: 8px; padding: 14px;
+      box-shadow: var(--shadow-card), 0 0 0 1px var(--border);
+    }
+    .sorten .kachel:hover { box-shadow: var(--shadow-card), 0 0 0 1px var(--border-hover); }
+    .sorten .kachel[aria-checked="true"] { background: var(--accent-soft); box-shadow: inset 0 0 0 1.5px var(--accent); }
+    .sorten .sorte-zahl { font-size: 22px; font-weight: 600; line-height: 1; letter-spacing: -.02em; color: var(--heading); }
+    .sorten .kachel[aria-checked="true"] .sorte-zahl { color: var(--accent-strong); }
+
     /* ═══════════════════════════════════════════════════════════════════════
        MODAL
        ═══════════════════════════════════════════════════════════════════════ */
@@ -1181,6 +1193,8 @@
           </div>
         </div>
 
+        <div class="sorten" id="apparel-sorten" role="radiogroup" aria-label="Nach Kategorie filtern"></div>
+
         <div class="card">
           <div class="card-header">
             <div class="filter-pills" role="tablist" aria-label="Arbeitskleidung filtern">
@@ -1247,7 +1261,7 @@
               <thead><tr>
                 <th>Vorname</th><th>Nachname</th><th class="col-optional">Abteilung</th>
                 <th class="col-optional">E-Mail</th><th class="col-optional">Eintritt</th>
-                <th class="col-optional">Standort</th><th>Ger&auml;te</th><th></th>
+                <th class="col-optional">Standort</th><th>Ger&auml;te</th><th>Kleidung</th><th></th>
               </tr></thead>
               <tbody id="employees-tbody"></tbody>
             </table>
@@ -2352,7 +2366,7 @@
 
   // ─── MITARBEITER ─────────────────────────────────────────────────────────────
   async function loadEmployees() {
-    skelett('employees-tbody', 8, 5);
+    skelett('employees-tbody', 9, 5);
     allEmployees = await api('GET', '/employees' + (employeeArchiv ? '?archiviert=1' : ''));
     updateNavCounts();
     renderEmployees();
@@ -2383,8 +2397,8 @@
     const tbody = document.getElementById('employees-tbody');
     if (!employees.length) {
       tbody.innerHTML = allEmployees.length
-        ? emptyRow(8, 'Keine Treffer', 'Andere Suche führt vielleicht weiter.', 'search')
-        : emptyRow(8, 'Noch keine Mitarbeiter', 'Lege den ersten Mitarbeiter an oder importiere eine Liste.', 'users');
+        ? emptyRow(9, 'Keine Treffer', 'Andere Suche führt vielleicht weiter.', 'search')
+        : emptyRow(9, 'Noch keine Mitarbeiter', 'Lege den ersten Mitarbeiter an oder importiere eine Liste.', 'users');
       return;
     }
     tbody.innerHTML = employees.map(e => `
@@ -2398,6 +2412,7 @@
         <td class="col-optional">${e.start_date ? `<span class="dim">${esc(formatDate(e.start_date))}</span>` : dash()}</td>
         <td class="col-optional">${e.location_name ? `<span class="dim">${esc(e.location_name)}</span>` : dash()}</td>
         <td>${e.device_count > 0 ? `<span class="badge badge-blue badge-plain">${e.device_count} Gerät${e.device_count > 1 ? 'e' : ''}</span>` : dash()}</td>
+        <td>${e.apparel_count > 0 ? `<span class="badge badge-gray badge-plain">${e.apparel_count} ${e.apparel_count === 1 ? 'Teil' : 'Teile'}</span>` : dash()}</td>
         <td>
           <div class="row-actions">
             ${employeeArchiv ? `<button class="btn btn-sm btn-ghost admin-only" onclick="restoreEintrag('employees', ${e.id}, '${escArg(fullName(e))}')" title="Wiederherstellen">${icon('restore')} <span class="btn-label">Wiederherstellen</span></button>` : `
@@ -2598,17 +2613,61 @@
 
   function searchApparel(q) { apparelSearch = q.toLowerCase(); renderApparel(); }
 
+  // Kategorie-Kacheln: bekannte Kategorien in fester Folge, der Rest dahinter.
+  const KATEGORIE_FOLGE = ['Hose', 'Latzhose', 'Shirt', 'Pullover', 'Weste', 'Jacke', 'Sicherheitsschuhe',
+    'Handschuhe', 'Kopfschutz', 'Gehörschutz', 'Schutzbrille', 'Sonstiges'];
+  const OHNE_KATEGORIE = 'Ohne Kategorie';
+  let apparelKategorie = null;
+  const kategorieVon = i => i.category || OHNE_KATEGORIE;
+
+  function renderApparelSorten() {
+    const gruppen = new Map();
+    for (const i of allApparel) {
+      const g = gruppen.get(kategorieVon(i)) || { stueck: 0, artikel: 0, leer: 0 };
+      g.stueck += i.stock; g.artikel++; if (i.stock <= 0) g.leer++;
+      gruppen.set(kategorieVon(i), g);
+    }
+    const rang = k => { const n = KATEGORIE_FOLGE.indexOf(k); return n < 0 ? (k === OHNE_KATEGORIE ? 999 : 500) : n; };
+    const namen = [...gruppen.keys()].sort((a, b) => rang(a) - rang(b) || a.localeCompare(b, 'de'));
+    if (apparelKategorie && !gruppen.has(apparelKategorie)) apparelKategorie = null;
+    const kachel = (wert, titel, g) => `
+      <button type="button" class="kachel" role="radio" aria-checked="${apparelKategorie === wert}"
+        onclick="waehleKategorie(${wert === null ? 'null' : `'${escArg(wert)}'`})">
+        <span>${esc(titel)}</span>
+        <span class="sorte-zahl num">${g.stueck}</span>
+        <span class="hint">${g.artikel} Artikel${g.leer ? ` · ${g.leer} leer` : ''}</span>
+      </button>`;
+    const alle = { stueck: allApparel.reduce((s, i) => s + i.stock, 0), artikel: allApparel.length, leer: allApparel.filter(i => i.stock <= 0).length };
+    document.getElementById('apparel-sorten').innerHTML = allApparel.length
+      ? kachel(null, 'Alle', alle) + namen.map(k => kachel(k, k, gruppen.get(k))).join('')
+      : '';
+  }
+
+  function waehleKategorie(k) { apparelKategorie = k; renderApparel(); }
+
+  // Suche: ein Wort, das genau einer vorhandenen Groesse entspricht, filtert
+  // auf diese Groesse (XL findet XL, nicht 3XL). Alle anderen Woerter suchen
+  // im Text. Mehrere Woerter muessen alle passen, z. B. "pullover l".
+  function passtZurSuche(i, woerter, groessen) {
+    return woerter.every(w => groessen.has(w)
+      ? (i.size || '').toLowerCase() === w
+      : [i.name, i.color, i.category, i.supplier, i.article_number].some(v => (v || '').toLowerCase().includes(w)));
+  }
+
   function renderApparel() {
+    renderApparelSorten();
     let items = allApparel;
+    if (apparelKategorie) items = items.filter(i => kategorieVon(i) === apparelKategorie);
     if (apparelFilter === 'nachbestellen') items = items.filter(i => i.stock <= 0 || mussNachbestellt(i));
-    if (apparelSearch) items = items.filter(i =>
-      [i.name, i.size, i.color, i.category, i.supplier, i.article_number]
-        .some(v => (v || '').toLowerCase().includes(apparelSearch))
-    );
+    if (apparelSearch.trim()) {
+      const groessen = new Set(allApparel.map(i => (i.size || '').toLowerCase()).filter(Boolean));
+      const woerter = apparelSearch.trim().split(/\s+/);
+      items = items.filter(i => passtZurSuche(i, woerter, groessen));
+    }
     const tbody = document.getElementById('apparel-tbody');
     if (!items.length) {
       tbody.innerHTML = allApparel.length
-        ? emptyRow(8, 'Keine Treffer', apparelFilter === 'nachbestellen' ? 'Nichts muss nachbestellt werden.' : 'Andere Suche führt vielleicht weiter.', 'search')
+        ? emptyRow(8, 'Keine Treffer', apparelFilter === 'nachbestellen' && !apparelSearch ? 'Nichts muss nachbestellt werden.' : 'Andere Suche oder andere Kachel führt vielleicht weiter.', 'search')
         : emptyRow(8, apparelArchiv ? 'Archiv ist leer' : 'Noch keine Arbeitskleidung', apparelArchiv ? '' : 'Lege den ersten Artikel an.', 'shirt');
       return;
     }
