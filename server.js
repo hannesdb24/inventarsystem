@@ -31,6 +31,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Gemeinsame Designgrundlagen (design/tokens.css) — bewusst ausserhalb von
 // public/, damit sie eine Quelle bleiben und nicht ins Projekt kopiert wird.
 app.use('/design', express.static(path.join(__dirname, 'design')));
+// Importvorlagen zum Herunterladen, z. B. der Wareneingang Arbeitskleidung.
+app.use('/vorlagen', express.static(path.join(__dirname, 'vorlagen')));
 
 // ─── DATENBANK ────────────────────────────────────────────────────────────────
 
@@ -173,6 +175,17 @@ async function initDB() {
         booked_by TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
+      -- Wareneingang aus einer Lieferantenrechnung, mit dem PDF als Beleg.
+      CREATE TABLE IF NOT EXISTS apparel_receipts (
+        id SERIAL PRIMARY KEY,
+        invoice_number TEXT NOT NULL,
+        invoice_date TEXT,
+        supplier TEXT NOT NULL,
+        pdf BYTEA,
+        pdf_name TEXT,
+        booked_by TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
     `);
     // Spalten nachrüsten falls DB schon existierte
     await pool.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL');
@@ -189,6 +202,9 @@ async function initDB() {
     await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ');
     await pool.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ');
     await pool.query('ALTER TABLE locations ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ');
+    // Ein Zugang kann aus einer Rechnung stammen; der Preis steht je Position.
+    await pool.query('ALTER TABLE apparel_movements ADD COLUMN IF NOT EXISTS receipt_id INTEGER REFERENCES apparel_receipts(id)');
+    await pool.query('ALTER TABLE apparel_movements ADD COLUMN IF NOT EXISTS unit_price NUMERIC');
     // Standorte einmalig seeden falls noch keine vorhanden
     const { rows: locCount } = await pool.query('SELECT COUNT(*)::int AS c FROM locations');
     if (locCount[0].c === 0) {
@@ -253,6 +269,7 @@ function loadDB() {
   if (!db.locations) db.locations = [];
   if (!db.apparel_items) db.apparel_items = [];
   if (!db.apparel_movements) db.apparel_movements = [];
+  if (!db.apparel_receipts) db.apparel_receipts = [];
   if (!db._seq.u) db._seq.u = 0;
   if (!db._seq.l) db._seq.l = 0;
   return db;
@@ -881,8 +898,10 @@ app.get('/api/apparel/items/:id/details', async (req, res) => {
         GROUP BY e.id HAVING ${summeSql(WIRKUNG_MITARBEITER)} > 0 ORDER BY e.name
       `, [id])).rows;
       const movements = (await pool.query(`
-        SELECT m.*, e.name AS employee_name
-        FROM apparel_movements m LEFT JOIN employees e ON e.id = m.employee_id
+        SELECT m.*, e.name AS employee_name, r.invoice_number, (r.pdf IS NOT NULL) AS has_pdf
+        FROM apparel_movements m
+        LEFT JOIN employees e ON e.id = m.employee_id
+        LEFT JOIN apparel_receipts r ON r.id = m.receipt_id
         WHERE m.item_id = $1 ORDER BY m.created_at DESC, m.id DESC
       `, [id])).rows;
       return res.json({ ...item, holders, movements });
@@ -898,8 +917,9 @@ app.get('/api/apparel/items/:id/details', async (req, res) => {
         return { employee_id: eid, employee_name: e.name, department: e.department, quantity: summeJs(bew.filter(m => m.employee_id === eid), WIRKUNG_MITARBEITER) };
       })
       .filter(h => h.quantity > 0).sort((a, b) => (a.employee_name || '').localeCompare(b.employee_name || ''));
+    const beleg = rid => db.apparel_receipts.find(r => r.id === rid);
     const movements = [...bew].sort((a, b) => new Date(b.created_at) - new Date(a.created_at) || b.id - a.id)
-      .map(m => ({ ...m, employee_name: name(m.employee_id) }));
+      .map(m => ({ ...m, employee_name: name(m.employee_id), invoice_number: beleg(m.receipt_id)?.invoice_number || null, has_pdf: !!beleg(m.receipt_id)?.pdf_base64 }));
     res.json({ ...item, stock: summeJs(bew, WIRKUNG_LAGER), issued: summeJs(bew, WIRKUNG_MITARBEITER), holders, movements });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1048,6 +1068,230 @@ app.post('/api/apparel/movements', async (req, res) => {
     db.apparel_movements.push(buchung);
     saveDB(db);
     res.status(201).json(buchung);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Wareneingang per Excel (vorlagen/Arbeitskleidung-Zugang.xlsx) ──
+// Der Browser liest die Datei und schickt die Zeilen. Der Server prueft sie
+// zweimal: einmal fuer die Vorschau, und beim Buchen noch einmal, weil sich
+// der Stand dazwischen geaendert haben kann.
+
+const klein = s => String(s ?? '').trim().toLowerCase();
+
+// Ein Lagerartikel ist Lieferant + Artikelnummer + Groesse + Farbe.
+function artikelSchluessel(r) {
+  return [r.supplier, r.article_number, r.size, r.color].map(klein).join('|');
+}
+function belegSchluessel(supplier, invoice_number) {
+  return klein(supplier) + '|' + klein(invoice_number);
+}
+
+function isoDatum(v) {
+  const s = String(v ?? '').trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  return null;
+}
+function zahl(v) {
+  if (v === '' || v == null) return null;
+  const n = typeof v === 'number' ? v : Number(String(v).replace(/\s|€/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : NaN;
+}
+
+// Reine Pruefung ohne Datenbankzugriff: bekommt die Zeilen, alle Artikel und
+// alle bisherigen Belege und sagt je Zeile, was beim Buchen passieren wuerde.
+function pruefeImport(eingabe, artikel, belege) {
+  const vorhanden = new Map(artikel.map(i => [artikelSchluessel(i), i]));
+  const schonGebucht = new Map(belege.map(b => [belegSchluessel(b.supplier, b.invoice_number), b]));
+  const rechnungen = new Map();
+
+  const zeilen = eingabe.map(z => {
+    const text = v => (v == null || String(v).trim() === '') ? null : String(v).trim();
+    const r = {
+      zeile: z.zeile,
+      invoice_number: text(z.invoice_number), invoice_date: isoDatum(z.invoice_date), supplier: text(z.supplier),
+      article_number: text(z.article_number), name: text(z.name), category: text(z.category),
+      size: text(z.size), color: text(z.color), quantity: zahl(z.quantity), unit_price: zahl(z.unit_price),
+      min_stock: zahl(z.min_stock), note: text(z.note), fehler: [],
+    };
+    if (!r.invoice_number) r.fehler.push('Rechnungsnummer fehlt');
+    if (!r.invoice_date) r.fehler.push(z.invoice_date ? 'Rechnungsdatum nicht lesbar' : 'Rechnungsdatum fehlt');
+    if (!r.supplier) r.fehler.push('Lieferant fehlt');
+    if (!r.article_number) r.fehler.push('Artikelnummer fehlt');
+    if (!r.name) r.fehler.push('Bezeichnung fehlt');
+    if (!r.category) r.fehler.push('Kategorie fehlt');
+    if (!r.size) r.fehler.push('Größe fehlt');
+    if (!Number.isInteger(r.quantity) || r.quantity < 1) r.fehler.push('Menge muss eine ganze Zahl ab 1 sein');
+    if (Number.isNaN(r.unit_price) || r.unit_price < 0) r.fehler.push('Einzelpreis nicht lesbar');
+    if (r.min_stock != null && (!Number.isInteger(r.min_stock) || r.min_stock < 0)) r.fehler.push('Mindestbestand muss eine ganze Zahl ab 0 sein');
+
+    if (r.invoice_number && r.supplier) {
+      const k = belegSchluessel(r.supplier, r.invoice_number);
+      const alt = schonGebucht.get(k);
+      if (alt) r.fehler.push(`Rechnung schon am ${new Date(alt.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} gebucht`);
+      const rg = rechnungen.get(k);
+      if (!rg) rechnungen.set(k, { invoice_number: r.invoice_number, supplier: r.supplier, invoice_date: r.invoice_date, positionen: 0, stueck: 0, summe: 0 });
+      else if (rg.invoice_date !== r.invoice_date) r.fehler.push('Anderes Datum als die übrigen Zeilen dieser Rechnung');
+    }
+
+    const item = vorhanden.get(artikelSchluessel(r));
+    r.item_id = item?.id || null;
+    r.stock_vorher = item ? item.stock : 0;
+    r.aus_archiv = !!item?.archived_at;
+    r.status = r.fehler.length ? 'fehler' : (item ? 'vorhanden' : 'neu');
+    return r;
+  });
+
+  for (const r of zeilen) {
+    if (r.status === 'fehler' || !r.invoice_number || !r.supplier) continue;
+    const rg = rechnungen.get(belegSchluessel(r.supplier, r.invoice_number));
+    rg.positionen++; rg.stueck += r.quantity; rg.summe += (r.unit_price || 0) * r.quantity;
+  }
+  return { zeilen, rechnungen: [...rechnungen.values()], ok: zeilen.length > 0 && zeilen.every(r => r.status !== 'fehler') };
+}
+
+async function importGrundlagen(client) {
+  if (usePostgres()) {
+    const artikel = (await client.query(`
+      SELECT i.*, ${summeSql(WIRKUNG_LAGER)} AS stock
+      FROM apparel_items i LEFT JOIN apparel_movements m ON m.item_id = i.id GROUP BY i.id
+    `)).rows;
+    const belege = (await client.query('SELECT id, invoice_number, supplier, created_at FROM apparel_receipts')).rows;
+    return { artikel, belege };
+  }
+  const db = loadDB();
+  return {
+    artikel: db.apparel_items.map(i => ({ ...i, stock: summeJs(db.apparel_movements.filter(m => m.item_id === i.id), WIRKUNG_LAGER) })),
+    belege: db.apparel_receipts,
+  };
+}
+
+app.post('/api/apparel/import/preview', requireAdmin, async (req, res) => {
+  const eingabe = Array.isArray(req.body.rows) ? req.body.rows : null;
+  if (!eingabe || !eingabe.length) return res.status(400).json({ error: 'Keine Zeilen gefunden' });
+  try {
+    const { artikel, belege } = await importGrundlagen(pool);
+    res.json(pruefeImport(eingabe, artikel, belege));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Bucht den ganzen Import oder nichts. Gibt je Rechnung die Beleg-ID zurueck,
+// an die der Browser danach das PDF haengt.
+app.post('/api/apparel/import', requireAdmin, async (req, res) => {
+  const eingabe = Array.isArray(req.body.rows) ? req.body.rows : null;
+  if (!eingabe || !eingabe.length) return res.status(400).json({ error: 'Keine Zeilen gefunden' });
+  const wer = req.session.username;
+  try {
+    if (usePostgres()) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        // Zwei gleichzeitige Importe derselben Rechnung darf es nicht geben.
+        await client.query('LOCK TABLE apparel_receipts IN SHARE ROW EXCLUSIVE MODE');
+        const { artikel, belege } = await importGrundlagen(client);
+        const pruefung = pruefeImport(eingabe, artikel, belege);
+        if (!pruefung.ok) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'Die Datei enthält Fehler', ...pruefung }); }
+        const belegIds = new Map(), neueArtikel = new Map(), ergebnis = [];
+        for (const rg of pruefung.rechnungen) {
+          const { rows } = await client.query(
+            'INSERT INTO apparel_receipts (invoice_number, invoice_date, supplier, booked_by) VALUES ($1,$2,$3,$4) RETURNING id',
+            [rg.invoice_number, rg.invoice_date, rg.supplier, wer]
+          );
+          belegIds.set(belegSchluessel(rg.supplier, rg.invoice_number), rows[0].id);
+          ergebnis.push({ ...rg, receipt_id: rows[0].id });
+        }
+        for (const r of pruefung.zeilen) {
+          let itemId = r.item_id || neueArtikel.get(artikelSchluessel(r));
+          if (!itemId) {
+            const { rows } = await client.query(
+              'INSERT INTO apparel_items (name, category, size, color, supplier, article_number, min_stock) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
+              [r.name, r.category, r.size, r.color, r.supplier, r.article_number, r.min_stock]
+            );
+            itemId = rows[0].id;
+            neueArtikel.set(artikelSchluessel(r), itemId);
+          } else if (r.aus_archiv) {
+            await client.query('UPDATE apparel_items SET archived_at = NULL WHERE id=$1', [itemId]);
+          }
+          await client.query(
+            "INSERT INTO apparel_movements (item_id, kind, quantity, receipt_id, unit_price, note, booked_by) VALUES ($1, 'zugang', $2, $3, $4, $5, $6)",
+            [itemId, r.quantity, belegIds.get(belegSchluessel(r.supplier, r.invoice_number)), r.unit_price, r.note, wer]
+          );
+        }
+        await client.query('COMMIT');
+        return res.status(201).json({ rechnungen: ergebnis, positionen: pruefung.zeilen.length, neue_artikel: neueArtikel.size });
+      } catch (e) { await client.query('ROLLBACK'); throw e; }
+      finally { client.release(); }
+    }
+    const { artikel, belege } = await importGrundlagen();
+    const pruefung = pruefeImport(eingabe, artikel, belege);
+    if (!pruefung.ok) return res.status(400).json({ error: 'Die Datei enthält Fehler', ...pruefung });
+    const db = loadDB();
+    const belegIds = new Map(), neueArtikel = new Map(), ergebnis = [];
+    for (const rg of pruefung.rechnungen) {
+      const beleg = { id: nextId(db, 'ar'), invoice_number: rg.invoice_number, invoice_date: rg.invoice_date, supplier: rg.supplier, pdf_base64: null, pdf_name: null, booked_by: wer, created_at: now() };
+      db.apparel_receipts.push(beleg);
+      belegIds.set(belegSchluessel(rg.supplier, rg.invoice_number), beleg.id);
+      ergebnis.push({ ...rg, receipt_id: beleg.id });
+    }
+    for (const r of pruefung.zeilen) {
+      let itemId = r.item_id || neueArtikel.get(artikelSchluessel(r));
+      if (!itemId) {
+        itemId = nextId(db, 'ai');
+        db.apparel_items.push({ id: itemId, name: r.name, category: r.category, size: r.size, color: r.color, supplier: r.supplier, article_number: r.article_number, min_stock: r.min_stock, created_at: now() });
+        neueArtikel.set(artikelSchluessel(r), itemId);
+      } else if (r.aus_archiv) {
+        delete db.apparel_items.find(i => i.id === itemId).archived_at;
+      }
+      db.apparel_movements.push({ id: nextId(db, 'am'), item_id: itemId, kind: 'zugang', quantity: r.quantity, employee_id: null, receipt_id: belegIds.get(belegSchluessel(r.supplier, r.invoice_number)), unit_price: r.unit_price, note: r.note, booked_by: wer, created_at: now() });
+    }
+    saveDB(db);
+    res.status(201).json({ rechnungen: ergebnis, positionen: pruefung.zeilen.length, neue_artikel: neueArtikel.size });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Das Rechnungs-PDF kommt als eigener Aufruf mit dem rohen Dateiinhalt, damit
+// die JSON-Grenze fuer alle anderen Routen klein bleiben kann.
+app.put('/api/apparel/receipts/:id/pdf', requireAdmin,
+  express.raw({ type: 'application/pdf', limit: '20mb' }), async (req, res) => {
+  const id = parseInt(req.params.id);
+  const daten = req.body;
+  if (!Buffer.isBuffer(daten) || !daten.length) return res.status(400).json({ error: 'Keine Datei empfangen' });
+  if (daten.subarray(0, 5).toString('latin1') !== '%PDF-') return res.status(400).json({ error: 'Die Datei ist kein PDF' });
+  let name = 'Rechnung.pdf';
+  try { name = decodeURIComponent(req.get('X-Dateiname') || name).replace(/[\r\n"]/g, '').slice(0, 200) || name; } catch {}
+  try {
+    if (usePostgres()) {
+      const { rowCount } = await pool.query('UPDATE apparel_receipts SET pdf=$1, pdf_name=$2 WHERE id=$3', [daten, name, id]);
+      if (!rowCount) return res.status(404).json({ error: 'Beleg nicht gefunden' });
+      return res.json({ success: true });
+    }
+    const db = loadDB();
+    const beleg = db.apparel_receipts.find(r => r.id === id);
+    if (!beleg) return res.status(404).json({ error: 'Beleg nicht gefunden' });
+    beleg.pdf_base64 = daten.toString('base64');
+    beleg.pdf_name = name;
+    saveDB(db);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/apparel/receipts/:id/pdf', async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    let daten, name;
+    if (usePostgres()) {
+      const r = (await pool.query('SELECT pdf, pdf_name FROM apparel_receipts WHERE id=$1', [id])).rows[0];
+      daten = r?.pdf; name = r?.pdf_name;
+    } else {
+      const r = loadDB().apparel_receipts.find(x => x.id === id);
+      daten = r?.pdf_base64 ? Buffer.from(r.pdf_base64, 'base64') : null; name = r?.pdf_name;
+    }
+    if (!daten) return res.status(404).json({ error: 'Kein PDF hinterlegt' });
+    res.set('Content-Type', 'application/pdf');
+    res.set('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(name || 'Rechnung.pdf')}`);
+    res.send(daten);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

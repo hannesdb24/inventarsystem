@@ -532,6 +532,7 @@
                   color var(--dur) var(--ease-fluid), transform var(--dur) var(--ease-fluid);
     }
     .btn:active { transform: scale(.98); }
+    a.btn { text-decoration: none; }
     .btn:disabled, .btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
 
     /* Primär — hell auf dunkel, exakt wie DAKOs Login-Button */
@@ -1083,6 +1084,13 @@
             <p>Lager Wriezen &middot; Bestand, Ausgabe und R&uuml;ckgabe</p>
           </div>
           <div class="page-actions">
+            <a class="btn btn-ghost admin-only" href="/vorlagen/Arbeitskleidung-Zugang.xlsx" download>
+              <svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-download"/></svg> Vorlage
+            </a>
+            <button class="btn btn-ghost admin-only" onclick="document.getElementById('apparel-import-input').click()">
+              <svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-upload"/></svg> Wareneingang importieren
+            </button>
+            <input type="file" id="apparel-import-input" accept=".xlsx,.xls" style="display:none" onchange="readApparelImport(this)" />
             <button class="btn btn-accent admin-only" onclick="openApparelItemModal()">
               <svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg> Artikel anlegen
             </button>
@@ -1665,6 +1673,22 @@
     </div>
   </div>
 </div>
+
+<div class="modal-overlay hidden" id="apparel-import-modal">
+  <div class="modal" style="max-width:960px">
+    <div class="modal-header">
+      <h3>Wareneingang pr&uuml;fen</h3>
+      <button class="modal-close" onclick="closeModal('apparel-import-modal')" aria-label="Schlie&szlig;en"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body" id="apparel-import-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('apparel-import-modal')">Abbrechen</button>
+      <button class="btn btn-primary" id="apparel-import-save" onclick="saveApparelImport()">Buchen</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="apparel-pdf-input" accept="application/pdf,.pdf" style="display:none" onchange="uploadReceiptPdfNachtraeglich(this)" />
 
 <div class="modal-overlay hidden" id="import-modal">
   <div class="modal">
@@ -2413,7 +2437,7 @@
           <td><span class="dim">${formatDate(m.created_at)}</span></td>
           <td>${esc(BUCHUNG_WORT[m.kind] || m.kind)}</td>
           <td class="zahl">${BUCHUNG_LAGER[m.kind] || ''}${m.quantity}</td>
-          <td>${m.employee_name ? esc(m.employee_name) : dash()}${m.note ? `<span class="faint" style="display:block;font-size:12px">${esc(m.note)}</span>` : ''}</td>
+          <td>${m.employee_name ? esc(m.employee_name) : (m.invoice_number ? '' : dash())}${belegVerweis(m, it.id)}${m.note ? `<span class="faint" style="display:block;font-size:12px">${esc(m.note)}</span>` : ''}</td>
           <td class="col-optional"><span class="dim">${esc(m.booked_by) || '–'}</span></td>
         </tr>`).join('');
       const zurueck = `{ zurueck: { art: 'artikel', id: ${it.id} }, itemId: ${it.id} }`;
@@ -2441,7 +2465,7 @@
         <div>
           <h4>Buchungen (${it.movements.length})</h4>
           <div class="table-wrap">
-            <table><thead><tr><th>Datum</th><th>Buchung</th><th class="zahl">Menge</th><th>Mitarbeiter · Notiz</th><th class="col-optional">Gebucht von</th></tr></thead>
+            <table><thead><tr><th>Datum</th><th>Buchung</th><th class="zahl">Menge</th><th>Mitarbeiter · Beleg · Notiz</th><th class="col-optional">Gebucht von</th></tr></thead>
             <tbody>${buchungRows || `<tr><td colspan="5"><div class="empty" style="padding:22px"><p class="empty-note">Noch keine Buchungen</p></div></td></tr>`}</tbody></table>
           </div>
         </div>`;
@@ -2608,6 +2632,175 @@
       await loadApparel();
       nachBuchung(zurueck);
     } catch (e) { toast(e.message, 'error'); }
+  }
+
+  // ── Rechnungsbeleg ──
+  function belegVerweis(m, itemId) {
+    if (!m.receipt_id) return '';
+    const nr = esc(m.invoice_number || 'Rechnung');
+    if (m.has_pdf) return `<a href="/api/apparel/receipts/${m.receipt_id}/pdf" target="_blank" rel="noopener">Rechnung ${nr}</a>`;
+    return `<span class="dim">Rechnung ${nr}</span>
+      <button class="btn btn-sm btn-quiet admin-only" style="height:28px;padding:0 8px" onclick="pdfNachreichen(${m.receipt_id}, ${itemId})">${icon('upload')} PDF anhängen</button>`;
+  }
+
+  // PDF an einen Beleg haengen. Eigener Aufruf mit dem rohen Dateiinhalt.
+  async function uploadReceiptPdf(receiptId, datei) {
+    if (datei.size > 20 * 1024 * 1024) throw new Error(`„${datei.name}“ ist größer als 20 MB`);
+    const res = await fetch('/api/apparel/receipts/' + receiptId + '/pdf', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/pdf', 'X-Dateiname': encodeURIComponent(datei.name) },
+      body: datei,
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'PDF konnte nicht gespeichert werden');
+  }
+
+  let pdfFuer = null;
+  function pdfNachreichen(receiptId, itemId) {
+    pdfFuer = { receiptId, itemId };
+    document.getElementById('apparel-pdf-input').click();
+  }
+  async function uploadReceiptPdfNachtraeglich(input) {
+    const datei = input.files[0];
+    input.value = '';
+    if (!datei || !pdfFuer) return;
+    const { receiptId, itemId } = pdfFuer;
+    pdfFuer = null;
+    try {
+      await uploadReceiptPdf(receiptId, datei);
+      toast('Rechnung angehängt');
+      showApparelDetails(itemId);
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  // ── Wareneingang per Excel ──
+  // Spaltenkoepfe der Vorlage (ohne Pflichtstern) → Feld auf dem Server.
+  const IMPORT_SPALTEN = {
+    'rechnungsnummer': 'invoice_number', 'rechnungsdatum': 'invoice_date', 'lieferant': 'supplier',
+    'artikelnummer lieferant': 'article_number', 'bezeichnung': 'name', 'kategorie': 'category',
+    'größe': 'size', 'farbe': 'color', 'menge': 'quantity', 'einzelpreis netto': 'unit_price',
+    'mindestbestand': 'min_stock', 'bemerkung': 'note',
+  };
+  let apparelImport = null;
+
+  function spaltenName(v) {
+    return String(v ?? '').replace(/\*/g, '').replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+  // Excel-Datum → JJJJ-MM-TT. Die 12 Stunden fangen ab, dass die Bibliothek
+  // Mitternacht je nach Zeitzone ein paar Sekunden vor den Tag legt.
+  function excelDatum(v) {
+    if (!(v instanceof Date)) return v;
+    const d = new Date(v.getTime() + 12 * 3600e3);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  async function readApparelImport(input) {
+    const datei = input.files[0];
+    input.value = '';
+    if (!datei) return;
+    let zeilen;
+    try {
+      const wb = XLSX.read(await datei.arrayBuffer(), { type: 'array', cellDates: true });
+      const ws = wb.Sheets['Zugang'] || wb.Sheets[wb.SheetNames[0]];
+      const tabelle = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+      const kopf = tabelle.findIndex(z => z.some(c => spaltenName(c) === 'rechnungsnummer'));
+      if (kopf < 0) { toast('Keine Spalte „Rechnungsnummer“ gefunden – bitte die Vorlage verwenden', 'error'); return; }
+      const spalten = tabelle[kopf].map(c => IMPORT_SPALTEN[spaltenName(c)] || null);
+      zeilen = [];
+      tabelle.slice(kopf + 1).forEach((z, i) => {
+        const r = { zeile: kopf + i + 2 };
+        spalten.forEach((feld, c) => { if (feld) r[feld] = feld === 'invoice_date' ? excelDatum(z[c]) : z[c]; });
+        // Leere Zeilen (die Vorlage hat 300 vorformatierte) gehoeren nicht dazu.
+        if (Object.values(IMPORT_SPALTEN).some(f => String(r[f] ?? '').trim() !== '')) zeilen.push(r);
+      });
+    } catch (e) { toast('Datei konnte nicht gelesen werden: ' + e.message, 'error'); return; }
+    if (!zeilen.length) { toast('Die Datei enthält keine ausgefüllten Zeilen', 'error'); return; }
+    try {
+      const pruefung = await api('POST', '/apparel/import/preview', { rows: zeilen });
+      apparelImport = { zeilen, pruefung, dateiname: datei.name, pdfs: {} };
+      renderApparelImport();
+      document.getElementById('apparel-import-modal').classList.remove('hidden');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  const rechnungSchluessel = r => (r.supplier || '').trim().toLowerCase() + '|' + (r.invoice_number || '').trim().toLowerCase();
+
+  function renderApparelImport() {
+    const { pruefung, dateiname } = apparelImport;
+    const z = pruefung.zeilen;
+    const anzahl = s => z.filter(r => r.status === s).length;
+    const fehler = anzahl('fehler');
+    const statusMarke = r => ({
+      neu: '<span class="badge badge-blue">Neuer Artikel</span>',
+      vorhanden: r.aus_archiv ? '<span class="badge badge-gray">Aus dem Archiv</span>' : '<span class="badge badge-green">Vorhanden</span>',
+      fehler: '<span class="badge badge-red">Fehler</span>',
+    })[r.status];
+
+    const rechnungen = pruefung.rechnungen.map((rg, n) => `
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;padding:12px 14px;border-radius:var(--radius-inner);box-shadow:inset 0 0 0 1px var(--border);background:var(--background)">
+        <div>
+          <strong>Rechnung ${esc(rg.invoice_number)}</strong> <span class="dim">· ${esc(rg.supplier)} · ${formatDate(rg.invoice_date)}</span>
+          <p class="hint">${rg.positionen} Positionen · <span class="num">${rg.stueck}</span> Stück${rg.summe ? ` · <span class="num">${formatPrice(rg.summe)}</span> netto` : ''}</p>
+        </div>
+        <div class="form-group" style="min-width:240px">
+          <label for="apparel-import-pdf-${n}" style="font-size:12px">Rechnung als PDF (optional)</label>
+          <input id="apparel-import-pdf-${n}" type="file" accept="application/pdf,.pdf" style="padding:8px 10px;height:auto"
+            onchange="apparelImport.pdfs['${escArg(rechnungSchluessel(rg))}'] = this.files[0] || null" />
+        </div>
+      </div>`).join('');
+
+    const zeilen = z.map(r => `<tr>
+        <td class="zahl"><span class="dim">${r.zeile}</span></td>
+        <td><strong>${esc(r.name) || '–'}</strong> <span class="num">${esc(r.size) || ''}</span>${r.color ? ` <span class="dim">${esc(r.color)}</span>` : ''}
+          <span class="faint" style="display:block;font-size:12px">${esc([r.supplier, r.article_number, r.invoice_number].filter(Boolean).join(' · '))}</span>
+          ${r.fehler.length ? `<span style="display:block;font-size:12px;color:var(--danger)">${r.fehler.map(esc).join(' · ')}</span>` : ''}</td>
+        <td class="zahl">${Number.isInteger(r.quantity) ? r.quantity : '–'}</td>
+        <td class="zahl col-optional">${r.unit_price != null && !Number.isNaN(r.unit_price) ? formatPrice(r.unit_price) : '–'}</td>
+        <td class="zahl col-optional">${r.status === 'fehler' ? '–' : `${r.stock_vorher} → ${r.stock_vorher + r.quantity}`}</td>
+        <td>${statusMarke(r)}</td>
+      </tr>`).join('');
+
+    document.getElementById('apparel-import-body').innerHTML = `
+      <p class="hero-note">${esc(dateiname)} · ${z.length} Positionen · ${anzahl('neu')} neue Artikel · ${anzahl('vorhanden')} vorhanden${fehler ? ` · <span style="color:var(--danger)">${fehler} mit Fehler</span>` : ''}</p>
+      ${fehler ? `<p class="login-error show" role="alert">${icon('alert')}<span>Gebucht wird nur eine fehlerfreie Datei. Korrigiere die markierten Zeilen in Excel und lade die Datei erneut hoch.</span></p>` : ''}
+      ${rechnungen ? `<div style="display:flex;flex-direction:column;gap:8px">${rechnungen}</div>` : ''}
+      <div class="table-wrap">
+        <table><thead><tr><th class="zahl">Zeile</th><th>Artikel</th><th class="zahl">Menge</th><th class="zahl col-optional">Einzelpreis</th><th class="zahl col-optional">Lager</th><th>Status</th></tr></thead>
+        <tbody>${zeilen}</tbody></table>
+      </div>`;
+    const knopf = document.getElementById('apparel-import-save');
+    knopf.disabled = !pruefung.ok;
+    knopf.textContent = pruefung.ok ? `${z.length} Positionen buchen` : 'Buchen';
+  }
+
+  async function saveApparelImport() {
+    if (!apparelImport?.pruefung.ok) return;
+    const knopf = document.getElementById('apparel-import-save');
+    knopf.disabled = true;
+    try {
+      const erg = await api('POST', '/apparel/import', { rows: apparelImport.zeilen });
+      // Die PDFs haengen an den eben angelegten Belegen. Scheitert eines, ist
+      // der Wareneingang trotzdem gebucht; das PDF laesst sich am Artikel nachreichen.
+      const pdfFehler = [];
+      for (const rg of erg.rechnungen) {
+        const datei = apparelImport.pdfs[rechnungSchluessel(rg)];
+        if (!datei) continue;
+        try { await uploadReceiptPdf(rg.receipt_id, datei); }
+        catch (e) { pdfFehler.push(`${rg.invoice_number}: ${e.message}`); }
+      }
+      apparelImport = null;
+      closeModal('apparel-import-modal');
+      await loadApparel();
+      if (pdfFehler.length) toast('Gebucht, aber PDF fehlt – ' + pdfFehler.join('; '), 'error');
+      else toast(`${erg.positionen} Positionen gebucht${erg.neue_artikel ? `, ${erg.neue_artikel} Artikel neu angelegt` : ''}`);
+    } catch (e) {
+      toast(e.message, 'error');
+      // Hat sich der Stand zwischenzeitlich geaendert (etwa dieselbe Rechnung
+      // von jemand anderem gebucht), die Pruefung neu holen und zeigen.
+      try {
+        apparelImport.pruefung = await api('POST', '/apparel/import/preview', { rows: apparelImport.zeilen });
+        renderApparelImport();
+      } catch { knopf.disabled = false; }
+    }
   }
 
   // Nach der Buchung die Detailansicht wieder oeffnen, aus der sie kam.
