@@ -4,3 +4,4 @@ backup-*.json
 
 # Enthaelt echte Mitarbeiter- und Geraetedaten. Repo ist oeffentlich.
 import-laptops.json
+import-arbeitskleidung.json
