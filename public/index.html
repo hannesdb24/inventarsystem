@@ -1194,6 +1194,7 @@
         </div>
 
         <div class="sorten" id="apparel-sorten" role="radiogroup" aria-label="Nach Kategorie filtern"></div>
+        <div class="filter-pills" id="apparel-farben" role="tablist" aria-label="Nach Farbe filtern" style="margin-bottom:16px"></div>
 
         <div class="card">
           <div class="card-header">
@@ -2645,6 +2646,33 @@
 
   function waehleKategorie(k) { apparelKategorie = k; renderApparel(); }
 
+  // Farb-Reiter unter den Kacheln. Sie zeigen nur Farben, die es in der
+  // gewaehlten Kategorie gibt; Artikel ohne Farbe stehen unter "Ohne Angabe".
+  let apparelFarbe = null;
+  const farbeVon = i => (i.color || '').trim().toLowerCase();
+
+  function renderApparelFarben(items) {
+    const farben = new Map();   // Schluessel → { name, artikel }
+    for (const i of items) {
+      const f = farben.get(farbeVon(i)) || { name: i.color ? i.color.trim() : 'Ohne Angabe', artikel: 0 };
+      f.artikel++;
+      farben.set(farbeVon(i), f);
+    }
+    // Eine Wahl, die es in der neuen Kategorie nicht gibt (oder die ausgeblendet
+    // ist), soll nicht unsichtbar weiterfiltern.
+    if (apparelFarbe !== null && (!farben.has(apparelFarbe) || farben.size < 2)) apparelFarbe = null;
+    const leiste = document.getElementById('apparel-farben');
+    leiste.style.display = farben.size > 1 ? 'flex' : 'none';
+    // "Ohne Angabe" steht hinten, die echten Farben alphabetisch davor.
+    const schluessel = [...farben.keys()].sort((a, b) => (a === '') - (b === '') || a.localeCompare(b, 'de'));
+    const reiter = (wert, text, n) => `<button class="pill" role="tab" aria-selected="${apparelFarbe === wert}"
+      onclick="waehleFarbe(${wert === null ? 'null' : `'${escArg(wert)}'`})">${esc(text)} <span class="num" style="opacity:.7">${n}</span></button>`;
+    leiste.innerHTML = reiter(null, 'Alle Farben', items.length) +
+      schluessel.map(k => reiter(k, farben.get(k).name, farben.get(k).artikel)).join('');
+  }
+
+  function waehleFarbe(f) { apparelFarbe = f; renderApparel(); }
+
   // Suche: ein Wort, das genau einer vorhandenen Groesse entspricht, filtert
   // auf diese Groesse (XL findet XL, nicht 3XL). Alle anderen Woerter suchen
   // im Text. Mehrere Woerter muessen alle passen, z. B. "pullover l".
@@ -2658,6 +2686,8 @@
     renderApparelSorten();
     let items = allApparel;
     if (apparelKategorie) items = items.filter(i => kategorieVon(i) === apparelKategorie);
+    renderApparelFarben(items);
+    if (apparelFarbe !== null) items = items.filter(i => farbeVon(i) === apparelFarbe);
     if (apparelFilter === 'nachbestellen') items = items.filter(i => i.stock <= 0 || mussNachbestellt(i));
     if (apparelSearch.trim()) {
       const groessen = new Set(allApparel.map(i => (i.size || '').toLowerCase()).filter(Boolean));
