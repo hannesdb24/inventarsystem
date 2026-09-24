@@ -7,6 +7,8 @@ const bcrypt = require('bcryptjs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Railway steht als Proxy davor: nötig für sichere Cookies und req.ip.
+app.set('trust proxy', 1);
 app.use(express.json());
 
 // ─── SESSION ──────────────────────────────────────────────────────────────────
@@ -24,10 +26,17 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-prod',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false, maxAge: 8 * 60 * 60 * 1000 }, // 8h
+  cookie: { secure: 'auto', sameSite: 'lax', httpOnly: true, maxAge: 8 * 60 * 60 * 1000 }, // 8h
 }));
 
 app.use(express.static(path.join(__dirname, 'public')));
+// Einmal-Link aus Einladung und „Passwort vergessen“: dieselbe Seite, das
+// Frontend liest den Token aus dem Pfad. Kein Referrer, kein Cache — der Token
+// ist ein Schlüssel.
+app.get('/einrichten/:token', (req, res) => {
+  res.set({ 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-store' });
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 // Gemeinsame Designgrundlagen (design/tokens.css) — bewusst ausserhalb von
 // public/, damit sie eine Quelle bleiben und nicht ins Projekt kopiert wird.
 app.use('/design', express.static(path.join(__dirname, 'design')));
@@ -54,53 +63,12 @@ function zeigeArchiv(req) {
   return req.query.archiviert === '1';
 }
 
-// ─── AUTH MIDDLEWARE ──────────────────────────────────────────────────────────
+// ─── NUTZERSTEUERUNG ──────────────────────────────────────────────────────────
+// Anmeldung, Rollen, Einladung, Passwort und Benutzerverwaltung: siehe auth.js.
+// Ab hier erfordern alle /api/*-Routen eine Anmeldung.
 
-function requireAuth(req, res, next) {
-  if (req.session && req.session.userId) return next();
-  res.status(401).json({ error: 'Nicht angemeldet' });
-}
-
-function requireAdmin(req, res, next) {
-  if (req.session && req.session.userRole === 'admin') return next();
-  res.status(403).json({ error: 'Keine Berechtigung' });
-}
-
-// ─── AUTH ROUTEN ──────────────────────────────────────────────────────────────
-
-app.post('/api/auth/login', async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'Benutzername und Passwort erforderlich' });
-  try {
-    let user;
-    if (usePostgres()) {
-      const { rows } = await pool.query('SELECT * FROM users WHERE username=$1', [username]);
-      user = rows[0];
-    } else {
-      const db = loadDB();
-      user = (db.users || []).find(u => u.username === username);
-    }
-    if (!user) return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
-    const valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid) return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
-    req.session.userId = user.id;
-    req.session.username = user.username;
-    req.session.userRole = user.role;
-    res.json({ id: user.id, username: user.username, role: user.role });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/auth/logout', (req, res) => {
-  req.session.destroy(() => res.json({ success: true }));
-});
-
-app.get('/api/auth/me', (req, res) => {
-  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Nicht angemeldet' });
-  res.json({ id: req.session.userId, username: req.session.username, role: req.session.userRole });
-});
-
-// Alle folgenden /api/* Routen erfordern Authentifizierung
-app.use('/api', requireAuth);
+const nutzer = require('./auth')({ app, pool, usePostgres, loadDB, saveDB, nextId });
+const { requireAdmin } = nutzer;
 
 // ─── DATENBANK INITIALISIEREN ─────────────────────────────────────────────────
 
@@ -227,33 +195,7 @@ async function initDB() {
   } else {
     console.log('ℹ️  Kein DATABASE_URL – nutze lokale JSON-Datei');
   }
-  await seedAdminUser();
-}
-
-async function seedAdminUser() {
-  const adminUser = process.env.ADMIN_USER || 'admin';
-  const adminPass = process.env.ADMIN_PASS;
-  if (!adminPass) return;
-
-  const hash = await bcrypt.hash(adminPass, 12);
-  if (usePostgres()) {
-    await pool.query(`
-      INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'admin')
-      ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'admin'
-    `, [adminUser, hash]);
-  } else {
-    const db = loadDB();
-    if (!db.users) db.users = [];
-    const idx = db.users.findIndex(u => u.username === adminUser);
-    if (idx >= 0) {
-      db.users[idx].password_hash = hash;
-      db.users[idx].role = 'admin';
-    } else {
-      db.users.push({ id: nextId(db, 'u'), username: adminUser, password_hash: hash, role: 'admin', created_at: now() });
-    }
-    saveDB(db);
-    console.log(`✅ Admin-Nutzer "${adminUser}" bereit`);
-  }
+  await nutzer.init();
 }
 
 // ─── LOKALE DB (JSON-Fallback) ────────────────────────────────────────────────
@@ -1457,92 +1399,6 @@ app.get('/api/stats', async (req, res) => {
       total_employees: db.employees.filter(e => !e.archived_at).length,
       total_assignments: db.assignments.filter(a => !a.returned_at).length,
     });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ─── BENUTZERVERWALTUNG ───────────────────────────────────────────────────────
-
-app.get('/api/users', requireAdmin, async (req, res) => {
-  try {
-    if (usePostgres()) {
-      const { rows } = await pool.query('SELECT id, username, role, created_at FROM users ORDER BY username');
-      return res.json(rows);
-    }
-    const db = loadDB();
-    res.json((db.users || []).map(({ password_hash, ...u }) => u));
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/users', requireAdmin, async (req, res) => {
-  const { username, password, role } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'Benutzername und Passwort erforderlich' });
-  if (!['admin', 'user'].includes(role)) return res.status(400).json({ error: 'Ungültige Rolle' });
-  try {
-    const hash = await bcrypt.hash(password, 12);
-    if (usePostgres()) {
-      const { rows } = await pool.query(
-        'INSERT INTO users (username, password_hash, role) VALUES ($1,$2,$3) RETURNING id, username, role, created_at',
-        [username, hash, role]
-      );
-      return res.status(201).json(rows[0]);
-    }
-    const db = loadDB();
-    if ((db.users || []).some(u => u.username === username)) return res.status(400).json({ error: 'Benutzername bereits vergeben' });
-    if (!db.users) db.users = [];
-    const user = { id: nextId(db, 'u'), username, password_hash: hash, role, created_at: now() };
-    db.users.push(user);
-    saveDB(db);
-    const { password_hash, ...safe } = user;
-    res.status(201).json(safe);
-  } catch (e) {
-    if (e.code === '23505') return res.status(400).json({ error: 'Benutzername bereits vergeben' });
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.put('/api/users/:id', requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id);
-  const { role, password } = req.body;
-  if (role && !['admin', 'user'].includes(role)) return res.status(400).json({ error: 'Ungültige Rolle' });
-  try {
-    if (usePostgres()) {
-      if (password) {
-        const hash = await bcrypt.hash(password, 12);
-        await pool.query('UPDATE users SET password_hash=$1 WHERE id=$2', [hash, id]);
-      }
-      if (role) {
-        await pool.query('UPDATE users SET role=$1 WHERE id=$2', [role, id]);
-      }
-      const { rows } = await pool.query('SELECT id, username, role, created_at FROM users WHERE id=$1', [id]);
-      if (!rows.length) return res.status(404).json({ error: 'Nicht gefunden' });
-      return res.json(rows[0]);
-    }
-    const db = loadDB();
-    const idx = (db.users || []).findIndex(u => u.id === id);
-    if (idx === -1) return res.status(404).json({ error: 'Nicht gefunden' });
-    if (role) db.users[idx].role = role;
-    if (password) db.users[idx].password_hash = await bcrypt.hash(password, 12);
-    saveDB(db);
-    const { password_hash, ...safe } = db.users[idx];
-    res.json(safe);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.delete('/api/users/:id', requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id);
-  if (id === req.session.userId) return res.status(400).json({ error: 'Eigenes Konto kann nicht gelöscht werden' });
-  try {
-    if (usePostgres()) {
-      const { rowCount } = await pool.query('DELETE FROM users WHERE id=$1', [id]);
-      if (!rowCount) return res.status(404).json({ error: 'Nicht gefunden' });
-      return res.json({ success: true });
-    }
-    const db = loadDB();
-    const idx = (db.users || []).findIndex(u => u.id === id);
-    if (idx === -1) return res.status(404).json({ error: 'Nicht gefunden' });
-    db.users.splice(idx, 1);
-    saveDB(db);
-    res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

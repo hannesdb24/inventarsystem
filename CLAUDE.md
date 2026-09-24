@@ -14,6 +14,7 @@ Ein internes Web-Inventarsystem für ein mittelständisches Unternehmen (~20–1
 ```
 /
 ├── server.js          # Express-Backend mit allen API-Routen
+├── auth.js            # Nutzersteuerung (Anmeldung, Einladung, Passwort, Benutzer)
 ├── public/
 │   └── index.html     # Single-Page Frontend
 ├── design/            # Hausgestaltung aus dem DAKO (Tokens + Regelwerk)
@@ -23,7 +24,9 @@ Ein internes Web-Inventarsystem für ein mittelständisches Unternehmen (~20–1
 ```
 
 ## Datenbank-Schema (PostgreSQL)
-- `users` – Systembenutzer (Login)
+- `users` – Systembenutzer (Login per E-Mail; Altkonten ohne E-Mail per Benutzername)
+- `user_tokens` – Einmal-Links (Einladung, Passwort), nur SHA-256-Hash
+- `login_throttle` – Login-Bremse (5 Fehlversuche → 15 Min. Sperre)
 - `employees` – Mitarbeiter des Unternehmens (Inventarempfänger)
 - `devices` – Geräte mit Status (verfügbar / vergeben / defekt)
 - `assignments` – Zuweisungen Gerät ↔ Mitarbeiter mit Verlauf
@@ -36,28 +39,27 @@ Ein internes Web-Inventarsystem für ein mittelständisches Unternehmen (~20–1
 - `GET/POST /api/assignments` – Zuweisungen
 - `PUT /api/assignments/:id/return` – Rückgabe
 - `GET /api/stats` – Dashboard-Kennzahlen
+- `POST /api/auth/login|logout`, `GET /api/auth/me`, `PATCH /api/profile/password`
+- `POST /api/passwort-vergessen`, `GET/POST /api/einrichten/:token` (öffentlich)
+- `GET/POST /api/users`, `PUT /api/users/:id`, `POST /api/users/:id/einladung|passwort-link` (Admin; kein Löschen, nur Deaktivieren)
 
 ## Umgebungsvariablen (Railway)
 - `DATABASE_URL` – PostgreSQL-Verbindung (automatisch von Railway gesetzt)
-- `SESSION_SECRET` – noch nicht gesetzt, muss hinzugefügt werden
-- `ADMIN_USER` – noch nicht gesetzt
-- `ADMIN_PASS` – noch nicht gesetzt
+- `SESSION_SECRET`, `ADMIN_USER`, `ADMIN_PASS` – gesetzt. Der Admin wird nur **angelegt**, wenn es ihn noch nicht gibt; ADMIN_PASS überschreibt kein Passwort mehr
+- `APP_URL` – Basis für Links in Mails (Pflicht für Einladungen), z. B. https://inventarsystem-production.up.railway.app
+- `SMTP_HOST`, `SMTP_PORT` (587/465), `SMTP_USER`, `SMTP_PASS` – Postfach inventarsystem@dachbleche24.de
+- `MAIL_FROM` – z. B. `Inventarsystem <inventarsystem@dachbleche24.de>`
+- `MAIL_SANDBOX_TO` – gesetzt = alle Mails gehen an diese Adresse (zum Testen)
 
 ## Was bereits erledigt ist
 - ✅ Vollständiges Backend mit allen CRUD-Endpunkten
 - ✅ Vollständiges Frontend (Dashboard, Geräte, Mitarbeiter, Verlauf)
 - ✅ PostgreSQL-Integration mit JSON-Fallback für lokale Entwicklung
 - ✅ Deployment auf Railway läuft
-- ✅ server.js wurde bereits um Session- und Auth-Grundstruktur erweitert (express-session, bcrypt, connect-pg-simple, users-Tabelle, requireAuth-Middleware, seedAdminUser)
+- ✅ Nutzersteuerung nach dem DAKO-Bausatz (`Dako/docs/NUTZERSTEUERUNG-BAUSATZ-2026-09-24.md`): Einladung per Mail, Passwort vergessen, Passwort ändern, Login-Bremse, Deaktivieren statt Löschen
 
 ## Was noch zu tun ist
-- [ ] **Userbereich / Login-System fertigstellen**
-  - Login-Seite im Frontend (index.html)
-  - API-Routen: POST /api/auth/login, POST /api/auth/logout, GET /api/auth/me
-  - `requireAuth` Middleware auf alle /api/* Routen anwenden
-  - Benutzerverwaltung (Admin kann User anlegen/löschen/Rollen vergeben)
-  - Rollen: `admin` (voller Zugriff) und `user` (nur lesen / zuweisen)
-- [ ] SESSION_SECRET, ADMIN_USER, ADMIN_PASS als Umgebungsvariablen in Railway setzen
+- [ ] APP_URL, SMTP_*, MAIL_FROM in Railway setzen (erst mit MAIL_SANDBOX_TO testen)
 - [ ] Nach Implementierung: `npm install` (für neue Packages), dann `git add . && git commit && git push`
 
 ## Gestaltung

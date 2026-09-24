@@ -748,6 +748,24 @@
     }
     .login-error.show { display: flex; }
     .login-submit { height: var(--h-control-lg); font-size: 15px; border-radius: var(--radius-control-lg); }
+    .login-view { display: flex; flex-direction: column; gap: 16px; }
+    .login-view.hidden { display: none; }
+    .login-link {
+      align-self: center; background: none; border: none; padding: 4px 6px; cursor: pointer;
+      font-family: inherit; font-size: 13px; font-weight: 500; color: var(--muted-foreground);
+      border-radius: var(--radius-control);
+    }
+    .login-link:hover { color: var(--foreground); text-decoration: underline; }
+    .notice {
+      display: flex; align-items: flex-start; gap: 8px; margin-bottom: 16px;
+      font-size: 13px; line-height: 1.5; color: var(--warning);
+      background: color-mix(in srgb, var(--warning) 10%, transparent);
+      border-radius: var(--radius-control); padding: 10px 12px;
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 22%, transparent);
+    }
+    .notice.hidden { display: none; }
+    .notice .icon { flex-shrink: 0; margin-top: 2px; }
+    .user-mail { display: block; font-size: 12px; color: var(--muted-foreground); }
     .login-legal { font-size: 12px; color: var(--faint-foreground); line-height: 1.5; }
 
     /* ═══════════════════════════════════════════════════════════════════════
@@ -848,6 +866,8 @@
     <g id="i-archive" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1.5"/><path d="M5 8v10.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V8"/><path d="M10 12h4"/></g>
     <g id="i-restore" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a9 9 0 1 1 1.6 6"/><path d="M3 5v5h5"/></g>
     <g id="i-shirt" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3.5 4 6l-1.5 4.5 3 1.2V20.5h13v-8.8l3-1.2L20 6l-5-2.5a3 3 0 0 1-6 0Z"/></g>
+    <g id="i-key" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 8.7-8.7M16.5 6.5l2.5 2.5M14 9l2 2"/></g>
+    <g id="i-mail" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6 8.5-6"/></g>
     <g id="i-alert"fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16.2h.01"/></g>
   </defs>
 </svg>
@@ -869,21 +889,82 @@
   <div class="login-panel">
     <div class="login-box">
       <span class="wordmark" style="font-size:22px"><span class="w-main">dachbleche</span><span class="w-24">24</span><span class="w-r">&reg;</span></span>
-      <div>
-        <p class="login-title">Anmelden</p>
-        <p class="login-sub">Mit deinem Inventar-Konto.</p>
+      <form id="login-view" class="login-view" onsubmit="event.preventDefault(); doLogin()" novalidate>
+        <div>
+          <p class="login-title">Anmelden</p>
+          <p class="login-sub">Mit deinem Inventar-Konto.</p>
+        </div>
+        <div class="form-group">
+          <label for="login-username">E-Mail</label>
+          <input id="login-username" type="text" inputmode="email" placeholder="name@dachbleche24.de" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label for="login-password">Passwort</label>
+          <input id="login-password" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" />
+        </div>
+        <p id="login-error" class="login-error" role="alert"><svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-alert"/></svg><span id="login-error-text"></span></p>
+        <button type="submit" class="btn btn-primary login-submit">Anmelden</button>
+        <button type="button" class="login-link" onclick="zeigeLoginAnsicht('forgot')">Passwort vergessen?</button>
+        <p class="login-legal">Kein Konto? Ein Administrator l&auml;dt dich per Mail ein.</p>
+      </form>
+
+      <form id="forgot-view" class="login-view hidden" onsubmit="event.preventDefault(); passwortVergessen()" novalidate>
+        <div>
+          <p class="login-title">Passwort vergessen</p>
+          <p class="login-sub">Du bekommst einen Link, mit dem du ein neues Passwort festlegst.</p>
+        </div>
+        <div class="form-group">
+          <label for="forgot-email">E-Mail</label>
+          <input id="forgot-email" type="email" placeholder="name@dachbleche24.de" autocomplete="email" />
+        </div>
+        <p id="forgot-error" class="login-error" role="alert"><svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-alert"/></svg><span id="forgot-error-text"></span></p>
+        <button type="submit" class="btn btn-primary login-submit" id="forgot-submit">Link anfordern</button>
+        <button type="button" class="login-link" onclick="zeigeLoginAnsicht('login')">Zur&uuml;ck zur Anmeldung</button>
+      </form>
+
+      <div id="forgot-done-view" class="login-view hidden" role="status">
+        <div>
+          <p class="login-title">Mail ist unterwegs</p>
+          <p class="login-sub">Wenn es zu der Adresse ein Konto gibt, kommt gleich ein Link zum Festlegen eines neuen Passworts. Er gilt sieben Tage und nur einmal.</p>
+        </div>
+        <button type="button" class="btn btn-primary login-submit" onclick="zeigeLoginAnsicht('login')">Zur Anmeldung</button>
       </div>
-      <div class="form-group">
-        <label for="login-username">Benutzername</label>
-        <input id="login-username" type="text" placeholder="benutzername" autocomplete="username" />
+
+      <form id="setup-view" class="login-view hidden" onsubmit="event.preventDefault(); zugangEinrichten()" novalidate>
+        <div>
+          <p class="login-title" id="setup-title">Zugang einrichten</p>
+          <p class="login-sub">F&uuml;r <strong id="setup-email"></strong></p>
+        </div>
+        <input type="text" id="setup-username" autocomplete="username" hidden />
+        <div class="form-group">
+          <label for="setup-password">Passwort</label>
+          <input id="setup-password" type="password" autocomplete="new-password" aria-describedby="setup-password-hint" />
+          <p class="hint" id="setup-password-hint">Mindestens 10 Zeichen.</p>
+        </div>
+        <div class="form-group">
+          <label for="setup-password2">Passwort wiederholen</label>
+          <input id="setup-password2" type="password" autocomplete="new-password" />
+        </div>
+        <p id="setup-error" class="login-error" role="alert"><svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-alert"/></svg><span id="setup-error-text"></span></p>
+        <button type="submit" class="btn btn-primary login-submit" id="setup-submit">Passwort setzen</button>
+      </form>
+
+      <div id="setup-invalid-view" class="login-view hidden">
+        <div>
+          <p class="login-title">Link nicht mehr g&uuml;ltig</p>
+          <p class="login-sub">Der Link wurde schon benutzt oder ist abgelaufen. Fordere einen neuen an oder bitte einen Administrator um eine neue Einladung.</p>
+        </div>
+        <button type="button" class="btn btn-primary login-submit" onclick="zeigeLoginAnsicht('forgot')">Neuen Link anfordern</button>
+        <button type="button" class="login-link" onclick="zeigeLoginAnsicht('login')">Zur Anmeldung</button>
       </div>
-      <div class="form-group">
-        <label for="login-password">Passwort</label>
-        <input id="login-password" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" />
+
+      <div id="setup-done-view" class="login-view hidden" role="status">
+        <div>
+          <p class="login-title">Passwort gesetzt</p>
+          <p class="login-sub">Du kannst dich jetzt mit deiner E-Mail-Adresse und dem neuen Passwort anmelden.</p>
+        </div>
+        <button type="button" class="btn btn-primary login-submit" onclick="zeigeLoginAnsicht('login')">Zur Anmeldung</button>
       </div>
-      <p id="login-error" class="login-error"><svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-alert"/></svg><span id="login-error-text"></span></p>
-      <button class="btn btn-primary login-submit" onclick="doLogin()">Anmelden</button>
-      <p class="login-legal">Kein Konto? Ein Administrator legt dich im Benutzerbereich an.</p>
     </div>
   </div>
 </div>
@@ -943,6 +1024,9 @@
         <span class="sidebar-username" id="header-username"></span>
         <span class="sidebar-role" id="header-role"></span>
       </div>
+      <button class="btn btn-icon" onclick="openPasswortModal()" title="Passwort &auml;ndern" aria-label="Passwort &auml;ndern">
+        <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-key"/></svg>
+      </button>
       <button class="btn btn-icon" onclick="doLogout()" title="Abmelden" aria-label="Abmelden">
         <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-logout"/></svg>
       </button>
@@ -1243,20 +1327,27 @@
         <div class="page-head">
           <div>
             <h1>Benutzer</h1>
-            <p>Zug&auml;nge zum Inventarsystem und deren Rollen</p>
+            <p>Zug&auml;nge zum Inventarsystem. Neue Benutzer bekommen eine Einladung per Mail und setzen ihr Passwort selbst.</p>
           </div>
           <div class="page-actions">
             <button class="btn btn-accent" onclick="openUserModal()">
-              <svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg> Benutzer hinzuf&uuml;gen
+              <svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg> Benutzer einladen
             </button>
           </div>
         </div>
 
+        <p class="notice hidden" id="mail-sandbox-notice" role="status"></p>
+
         <div class="card">
-          <div class="card-header"><h2>Alle Benutzer</h2></div>
+          <div class="card-header">
+            <div class="filter-pills" role="tablist" aria-label="Benutzer nach Status">
+              <button class="pill" role="tab" aria-selected="true"  data-sicht="aktiv"       onclick="zeigeUserSicht('aktiv')">Aktiv <span class="num" id="users-count-aktiv"></span></button>
+              <button class="pill" role="tab" aria-selected="false" data-sicht="deaktiviert" onclick="zeigeUserSicht('deaktiviert')">Deaktiviert <span class="num" id="users-count-deaktiviert"></span></button>
+            </div>
+          </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Benutzername</th><th>Rolle</th><th class="col-optional">Erstellt am</th><th></th></tr></thead>
+              <thead><tr><th>Benutzer</th><th>Rolle</th><th>Status</th><th></th></tr></thead>
               <tbody id="users-tbody"></tbody>
             </table>
           </div>
@@ -1479,13 +1570,14 @@
     </div>
     <div class="modal-body">
       <input type="hidden" id="user-id" />
-      <div class="form-group" id="user-username-group">
-        <label for="user-username">Benutzername *</label>
-        <input id="user-username" type="text" placeholder="benutzername" autocomplete="off" />
+      <div class="form-group">
+        <label for="user-email">E-Mail *</label>
+        <input id="user-email" type="email" placeholder="name@dachbleche24.de" autocomplete="off" aria-describedby="user-email-hint" />
+        <p class="hint" id="user-email-hint">Hierhin geht die Einladung.</p>
       </div>
       <div class="form-group">
-        <label id="user-password-label" for="user-password">Passwort *</label>
-        <input id="user-password" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="new-password" />
+        <label for="user-name">Name</label>
+        <input id="user-name" type="text" placeholder="Vorname Nachname" autocomplete="off" />
       </div>
       <div class="form-group">
         <label for="user-role">Rolle</label>
@@ -1497,9 +1589,40 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('user-modal')">Abbrechen</button>
-      <button class="btn btn-primary" onclick="saveUser()">Speichern</button>
+      <button class="btn btn-primary" onclick="saveUser()" id="user-save">Einladen</button>
     </div>
   </div>
+</div>
+
+<div class="modal-overlay hidden" id="password-modal">
+  <form class="modal" onsubmit="event.preventDefault(); passwortAendern()" novalidate>
+    <div class="modal-header">
+      <h3>Passwort &auml;ndern</h3>
+      <button type="button" class="modal-close" onclick="closeModal('password-modal')" aria-label="Schlie&szlig;en"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="text" id="pw-username" autocomplete="username" hidden />
+      <div class="form-group">
+        <label for="pw-current">Aktuelles Passwort</label>
+        <input id="pw-current" type="password" autocomplete="current-password" />
+      </div>
+      <div class="form-group">
+        <label for="pw-new">Neues Passwort</label>
+        <input id="pw-new" type="password" autocomplete="new-password" aria-describedby="pw-new-hint" />
+        <p class="hint" id="pw-new-hint">Mindestens 10 Zeichen.</p>
+      </div>
+      <div class="form-group">
+        <label for="pw-new2">Neues Passwort wiederholen</label>
+        <input id="pw-new2" type="password" autocomplete="new-password" />
+      </div>
+      <p id="pw-error" class="login-error" role="alert"><svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-alert"/></svg><span id="pw-error-text"></span></p>
+      <p class="hint">Danach meldest du dich neu an &ndash; auch auf anderen Ger&auml;ten.</p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" onclick="closeModal('password-modal')">Abbrechen</button>
+      <button type="submit" class="btn btn-primary" id="pw-submit">Passwort &auml;ndern</button>
+    </div>
+  </form>
 </div>
 
 <div class="modal-overlay hidden" id="location-modal">
@@ -1810,9 +1933,7 @@
     const res = await fetch('/api' + path, opts);
     const data = await res.json();
     if (res.status === 401 && path !== '/auth/login' && path !== '/auth/me') {
-      currentUser = null;
-      document.body.className = '';
-      document.getElementById('login-overlay').classList.remove('hidden');
+      abgemeldet();
       throw new Error('Sitzung abgelaufen – bitte neu anmelden');
     }
     if (!res.ok) throw new Error(data.error || 'Fehler');
@@ -1820,50 +1941,146 @@
   }
 
   // ─── AUTH ────────────────────────────────────────────────────────────────────
+  const LOGIN_ANSICHTEN = ['login', 'forgot', 'forgot-done', 'setup', 'setup-invalid', 'setup-done'];
+  const PASSWORT_MINDESTLAENGE = 10;
+  let einrichtToken = null;
+
+  function zeigeLoginAnsicht(name) {
+    LOGIN_ANSICHTEN.forEach(a => document.getElementById(a + '-view').classList.toggle('hidden', a !== name));
+    document.querySelectorAll('#login-overlay .login-error').forEach(e => e.classList.remove('show'));
+    document.getElementById('login-overlay').classList.remove('hidden');
+    const fokus = { login: 'login-username', forgot: 'forgot-email', setup: 'setup-password' }[name];
+    if (fokus) setTimeout(() => document.getElementById(fokus).focus(), 30);
+    // Der Einmal-Link hat seinen Dienst getan: die Adresse wieder auf die App stellen.
+    if (name === 'login' && location.pathname.startsWith('/einrichten/')) history.replaceState(null, '', '/');
+  }
+
+  function zeigeFehler(prefix, msg) {
+    document.getElementById(prefix + '-error-text').textContent = msg;
+    document.getElementById(prefix + '-error').classList.add('show');
+  }
+
   async function checkAuth() {
     try {
       currentUser = await api('GET', '/auth/me');
+      const anzeige = currentUser.name || currentUser.username;
       document.getElementById('login-overlay').classList.add('hidden');
-      document.getElementById('header-username').textContent = currentUser.username;
-      document.getElementById('header-avatar').textContent = currentUser.username.slice(0, 2).toUpperCase();
+      document.getElementById('header-username').textContent = anzeige;
+      document.getElementById('header-avatar').textContent = anzeige.slice(0, 2).toUpperCase();
       document.getElementById('header-role').textContent = currentUser.role === 'admin' ? 'Administrator' : 'Benutzer';
       document.body.classList.add('role-' + currentUser.role);
       return true;
     } catch {
-      document.getElementById('login-overlay').classList.remove('hidden');
+      zeigeLoginAnsicht('login');
       return false;
     }
   }
 
-  function showLoginError(msg) {
-    const box = document.getElementById('login-error');
-    document.getElementById('login-error-text').textContent = msg;
-    box.classList.add('show');
-  }
+  function showLoginError(msg) { zeigeFehler('login', msg); }
 
   async function doLogin() {
-    const username = document.getElementById('login-username').value.trim();
+    const email = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
     document.getElementById('login-error').classList.remove('show');
-    if (!username || !password) { showLoginError('Bitte Benutzername und Passwort eingeben'); return; }
+    if (!email || !password) { showLoginError('Bitte E-Mail und Passwort eingeben.'); return; }
     try {
-      await api('POST', '/auth/login', { username, password });
+      await api('POST', '/auth/login', { email, password });
       document.getElementById('login-password').value = '';
       document.body.className = '';
       await checkAuth();
       await init();
     } catch (e) {
+      // Bewusst unspezifisch: auch bei Sperre, deaktiviert oder unbekannt.
       showLoginError(e.message);
     }
   }
 
-  async function doLogout() {
-    try { await api('POST', '/auth/logout'); } catch {}
+  function abgemeldet() {
     currentUser = null;
     document.body.className = '';
     allDevices = []; allEmployees = []; allAssignments = []; allUsers = []; allLocations = []; allApparel = [];
-    document.getElementById('login-overlay').classList.remove('hidden');
     document.getElementById('login-username').value = '';
+    document.getElementById('login-password').value = '';
+    zeigeLoginAnsicht('login');
+  }
+
+  async function doLogout() {
+    try { await api('POST', '/auth/logout'); } catch {}
+    abgemeldet();
+  }
+
+  // Antwort ist immer gleich — ob es ein Konto gibt, steht hier bewusst nicht.
+  async function passwortVergessen() {
+    const email = document.getElementById('forgot-email').value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { zeigeFehler('forgot', 'Bitte eine gültige E-Mail-Adresse eingeben.'); return; }
+    const btn = document.getElementById('forgot-submit');
+    btn.disabled = true;
+    try { await api('POST', '/passwort-vergessen', { email }); } catch {}
+    btn.disabled = false;
+    zeigeLoginAnsicht('forgot-done');
+  }
+
+  // Eine Ansicht für Einladung UND Zurücksetzen — der Zweck kommt vom Server.
+  async function starteEinrichtung(token) {
+    einrichtToken = token;
+    try {
+      const d = await api('GET', '/einrichten/' + encodeURIComponent(token));
+      document.getElementById('setup-title').textContent = d.purpose === 'INVITE' ? 'Zugang einrichten' : 'Neues Passwort';
+      document.getElementById('setup-email').textContent = d.email;
+      document.getElementById('setup-username').value = d.email;
+      zeigeLoginAnsicht('setup');
+    } catch {
+      zeigeLoginAnsicht('setup-invalid');
+    }
+  }
+
+  async function zugangEinrichten() {
+    const pw = document.getElementById('setup-password').value;
+    const pw2 = document.getElementById('setup-password2').value;
+    document.getElementById('setup-error').classList.remove('show');
+    if (pw.length < PASSWORT_MINDESTLAENGE) { zeigeFehler('setup', `Das Passwort braucht mindestens ${PASSWORT_MINDESTLAENGE} Zeichen.`); return; }
+    if (pw !== pw2) { zeigeFehler('setup', 'Die beiden Eingaben stimmen nicht überein.'); return; }
+    const btn = document.getElementById('setup-submit');
+    btn.disabled = true;
+    try {
+      const d = await api('POST', '/einrichten/' + encodeURIComponent(einrichtToken), { password: pw });
+      document.getElementById('setup-password').value = '';
+      document.getElementById('setup-password2').value = '';
+      document.getElementById('login-username').value = d.email || '';
+      zeigeLoginAnsicht('setup-done');
+    } catch (e) {
+      zeigeFehler('setup', e.message);
+    }
+    btn.disabled = false;
+  }
+
+  function openPasswortModal() {
+    ['pw-current', 'pw-new', 'pw-new2'].forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('pw-username').value = currentUser.email || currentUser.username;
+    document.getElementById('pw-error').classList.remove('show');
+    document.getElementById('password-modal').classList.remove('hidden');
+    setTimeout(() => document.getElementById('pw-current').focus(), 50);
+  }
+
+  async function passwortAendern() {
+    const currentPassword = document.getElementById('pw-current').value;
+    const newPassword = document.getElementById('pw-new').value;
+    document.getElementById('pw-error').classList.remove('show');
+    if (!currentPassword) { zeigeFehler('pw', 'Bitte das aktuelle Passwort eingeben.'); return; }
+    if (newPassword.length < PASSWORT_MINDESTLAENGE) { zeigeFehler('pw', `Das neue Passwort braucht mindestens ${PASSWORT_MINDESTLAENGE} Zeichen.`); return; }
+    if (newPassword !== document.getElementById('pw-new2').value) { zeigeFehler('pw', 'Die Wiederholung stimmt nicht mit dem neuen Passwort überein.'); return; }
+    const btn = document.getElementById('pw-submit');
+    btn.disabled = true;
+    try {
+      await api('PATCH', '/profile/password', { currentPassword, newPassword });
+      closeModal('password-modal');
+      // Die Änderung beendet alle Sitzungen, auch diese.
+      abgemeldet();
+      toast('Passwort geändert – bitte neu anmelden');
+    } catch (e) {
+      zeigeFehler('pw', e.message);
+    }
+    btn.disabled = false;
   }
 
   // ─── TOAST ───────────────────────────────────────────────────────────────────
@@ -2973,71 +3190,146 @@
   }
 
   // ─── BENUTZERVERWALTUNG ──────────────────────────────────────────────────────
+  // Kein Löschen: Zugänge werden deaktiviert, damit „gebucht von“ und der
+  // Verlauf ihren Bezug behalten. Kein Admin setzt ein fremdes Passwort.
+  let userSicht = 'aktiv';
+  const userAnzeige = u => u.name || u.email || u.username;
+
   async function loadUsers() {
     skelett('users-tbody', 4, 3);
-    allUsers = await api('GET', '/users');
+    const d = await api('GET', '/users');
+    allUsers = d.nutzer;
+    const notice = document.getElementById('mail-sandbox-notice');
+    notice.classList.toggle('hidden', !d.mailSandboxAn);
+    if (d.mailSandboxAn) {
+      notice.innerHTML = `${icon('alert')}<span><strong>Mail-Sandbox ist an.</strong> Jede Einladung geht an ${esc(d.mailSandboxAn)} statt an den Empfänger. Zum Scharfschalten MAIL_SANDBOX_TO in Railway löschen.</span>`;
+    }
     renderUsers();
   }
 
+  function zeigeUserSicht(sicht) {
+    userSicht = sicht;
+    document.querySelectorAll('#tab-users .pill').forEach(p => p.setAttribute('aria-selected', String(p.dataset.sicht === sicht)));
+    renderUsers();
+  }
+
+  function userStatus(u) {
+    if (!u.is_active) return '<span class="badge badge-gray">Deaktiviert</span>';
+    if (!u.zugang_eingerichtet) return '<span class="badge badge-warn">Eingeladen</span>';
+    return '<span class="badge badge-green">Aktiv</span>';
+  }
+
   function renderUsers() {
+    const alphabetisch = (a, b) => userAnzeige(a).localeCompare(userAnzeige(b), 'de', { sensitivity: 'base' });
+    const aktive = allUsers.filter(u => u.is_active).sort(alphabetisch);
+    const deaktivierte = allUsers.filter(u => !u.is_active).sort(alphabetisch);
+    document.getElementById('users-count-aktiv').textContent = aktive.length;
+    document.getElementById('users-count-deaktiviert').textContent = deaktivierte.length;
+    const liste = userSicht === 'aktiv' ? aktive : deaktivierte;
     const tbody = document.getElementById('users-tbody');
-    if (!allUsers.length) {
-      tbody.innerHTML = emptyRow(4, 'Keine Benutzer', 'Lege den ersten Zugang an.', 'shield');
+    if (!liste.length) {
+      tbody.innerHTML = userSicht === 'aktiv'
+        ? emptyRow(4, 'Keine Benutzer', 'Lade den ersten Zugang ein.', 'shield')
+        : emptyRow(4, 'Keine deaktivierten Benutzer', 'Deaktivierte Zugänge erscheinen hier und lassen sich wieder aktivieren.', 'shield');
       return;
     }
-    tbody.innerHTML = allUsers.map(u => `
+    tbody.innerHTML = liste.map(u => {
+      const ich = u.id === currentUser.id;
+      let link = '';
+      if (u.is_active && !u.email) {
+        link = `<button class="btn btn-sm btn-ghost" onclick="openUserModal(${u.id})" title="Für Einladung und Passwort-Link fehlt die E-Mail">${icon('mail')} <span class="btn-label">E-Mail hinterlegen</span></button>`;
+      } else if (u.is_active && !u.zugang_eingerichtet) {
+        link = `<button class="btn btn-sm btn-ghost" onclick="zugangsLinkSenden(${u.id}, 'einladung', this)">${icon('mail')} <span class="btn-label">Einladung senden</span></button>`;
+      } else if (u.is_active && !ich) {
+        link = `<button class="btn btn-sm btn-ghost" onclick="zugangsLinkSenden(${u.id}, 'passwort-link', this)">${icon('key')} <span class="btn-label">Passwort-Link</span></button>`;
+      }
+      const status = ich ? '' : u.is_active
+        ? `<button class="btn btn-icon danger" onclick="setUserAktiv(${u.id}, false)" title="Deaktivieren" aria-label="Deaktivieren">${icon('archive')}</button>`
+        : `<button class="btn btn-sm btn-ghost" onclick="setUserAktiv(${u.id}, true)" title="Aktivieren">${icon('restore')} <span class="btn-label">Aktivieren</span></button>`;
+      return `
       <tr>
-        <td><strong>${esc(u.username)}</strong>${u.id === currentUser.id ? ' <span class="faint">(du)</span>' : ''}</td>
+        <td><strong>${esc(userAnzeige(u))}</strong>${ich ? ' <span class="faint">(du)</span>' : ''}
+          ${u.name && u.email ? `<span class="user-mail">${esc(u.email)}</span>` : ''}
+          ${!u.email && u.username && u.name ? `<span class="user-mail">${esc(u.username)}</span>` : ''}</td>
         <td><span class="role-badge ${u.role === 'admin' ? 'admin' : 'user'}">${u.role === 'admin' ? 'Administrator' : 'Benutzer'}</span></td>
-        <td class="col-optional"><span class="dim">${formatDate(u.created_at)}</span></td>
+        <td>${userStatus(u)}</td>
         <td>
           <div class="row-actions">
-            <button class="btn btn-icon" onclick="openUserModal(${u.id})" title="Bearbeiten" aria-label="Bearbeiten">${icon('edit')}</button>
-            ${u.id !== currentUser.id ? `<button class="btn btn-icon danger" onclick="deleteUser(${u.id}, '${escArg(u.username)}')" title="Löschen" aria-label="Löschen">${icon('trash')}</button>` : ''}
+            ${link}
+            ${u.is_active ? `<button class="btn btn-icon" onclick="openUserModal(${u.id})" title="Bearbeiten" aria-label="Bearbeiten">${icon('edit')}</button>` : ''}
+            ${status}
           </div>
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
   }
 
   function openUserModal(id) {
     const u = id ? allUsers.find(x => x.id === id) : null;
-    document.getElementById('user-modal-title').textContent = u ? 'Benutzer bearbeiten' : 'Benutzer hinzufügen';
+    const ich = u && u.id === currentUser.id;
+    document.getElementById('user-modal-title').textContent = u ? 'Benutzer bearbeiten' : 'Benutzer einladen';
+    document.getElementById('user-save').textContent = u ? 'Speichern' : 'Einladen';
     document.getElementById('user-id').value = u ? u.id : '';
-    document.getElementById('user-username').value = u ? u.username : '';
-    document.getElementById('user-username-group').style.display = u ? 'none' : 'flex';
-    document.getElementById('user-password').value = '';
-    document.getElementById('user-password-label').textContent = u ? 'Neues Passwort (leer = unverändert)' : 'Passwort *';
+    document.getElementById('user-email').value = u ? (u.email || '') : '';
+    document.getElementById('user-email-hint').textContent = u
+      ? 'Für Einladung, Passwort-Link und die Anmeldung.'
+      : 'Hierhin geht die Einladung. Das Passwort legt der Benutzer selbst fest.';
+    document.getElementById('user-name').value = u ? (u.name || '') : '';
     document.getElementById('user-role').value = u ? u.role : 'user';
+    // Sich selbst herabstufen geht nicht — so sperrt sich niemand versehentlich aus.
+    document.getElementById('user-role').disabled = !!ich;
     document.getElementById('user-modal').classList.remove('hidden');
-    if (!u) setTimeout(() => document.getElementById('user-username').focus(), 50);
+    setTimeout(() => document.getElementById(u && u.email ? 'user-name' : 'user-email').focus(), 50);
   }
 
   async function saveUser() {
     const id = document.getElementById('user-id').value;
-    const username = document.getElementById('user-username').value.trim();
-    const password = document.getElementById('user-password').value;
+    const email = document.getElementById('user-email').value.trim();
+    const name = document.getElementById('user-name').value.trim();
     const role = document.getElementById('user-role').value;
-    if (!id && (!username || !password)) { toast('Benutzername und Passwort erforderlich', 'error'); return; }
+    const u = id ? allUsers.find(x => x.id === Number(id)) : null;
+    if (!email && !(u && !u.email)) { toast('Bitte eine E-Mail-Adresse eingeben', 'error'); return; }
     try {
       if (id) {
-        const body = { role };
-        if (password) body.password = password;
+        const body = { name, role };
+        if (email) body.email = email;
         await api('PUT', '/users/' + id, body);
+        closeModal('user-modal');
+        await loadUsers();
+        toast('Benutzer aktualisiert');
       } else {
-        await api('POST', '/users', { username, password, role });
+        const r = await api('POST', '/users', { email, name, role });
+        closeModal('user-modal');
+        userSicht = 'aktiv';
+        await loadUsers();
+        zeigeUserSicht('aktiv');
+        if (r.einladung && r.einladung.gesendet) toast(`Einladung an ${r.email} ist unterwegs`);
+        else toast(`Benutzer angelegt, Einladung nicht gesendet: ${r.einladung ? r.einladung.hinweis : ''}`, 'error');
       }
-      closeModal('user-modal');
-      await loadUsers();
-      toast(id ? 'Benutzer aktualisiert' : 'Benutzer hinzugefügt');
     } catch (e) { toast(e.message, 'error'); }
   }
 
-  async function deleteUser(id, username) {
-    if (!await confirmDialog({ titel: 'Benutzer löschen?', text: `„${username}“ verliert damit den Zugang zum Inventarsystem.`, aktion: 'Löschen', gefahr: true })) return;
+  async function zugangsLinkSenden(id, art, btn) {
+    const u = allUsers.find(x => x.id === id);
+    btn.disabled = true;
     try {
-      await api('DELETE', '/users/' + id);
+      await api('POST', `/users/${id}/${art}`);
+      toast(art === 'einladung' ? `Einladung an ${u.email} ist unterwegs` : `Passwort-Link an ${u.email} ist unterwegs`);
+    } catch (e) { toast(e.message, 'error'); }
+    btn.disabled = false;
+  }
+
+  async function setUserAktiv(id, aktiv) {
+    const u = allUsers.find(x => x.id === id);
+    if (!aktiv && !await confirmDialog({
+      titel: 'Benutzer deaktivieren?',
+      text: `„${userAnzeige(u)}“ kann sich ab sofort nicht mehr anmelden. Was der Zugang gebucht hat, bleibt erhalten, und du kannst ihn unter „Deaktiviert“ wieder aktivieren.`,
+      aktion: 'Deaktivieren', gefahr: true,
+    })) return;
+    try {
+      await api('PUT', '/users/' + id, { is_active: aktiv });
       await loadUsers();
-      toast('Benutzer gelöscht');
+      toast(aktiv ? 'Benutzer aktiviert' : 'Benutzer deaktiviert');
     } catch (e) { toast(e.message, 'error'); }
   }
 
@@ -3273,18 +3565,13 @@
 
   // ─── INIT ────────────────────────────────────────────────────────────────────
   async function init() {
+    const einrichten = location.pathname.match(/^\/einrichten\/([^/]+)$/);
+    if (einrichten && !einrichtToken) { await starteEinrichtung(decodeURIComponent(einrichten[1])); return; }
     const authed = await checkAuth();
     if (!authed) return;
     await Promise.allSettled([loadDevices(), loadEmployees(), loadLocations(), loadApparel()]);
     loadDashboard();
   }
-
-  document.getElementById('login-password').addEventListener('keydown', e => {
-    if (e.key === 'Enter') doLogin();
-  });
-  document.getElementById('login-username').addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('login-password').focus();
-  });
 
   init();
 </script>
