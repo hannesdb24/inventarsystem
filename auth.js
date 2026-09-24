@@ -672,6 +672,8 @@ module.exports = function nutzersteuerung({ app, pool, usePostgres, loadDB, save
   return {
     requireAuth,
     requireAdmin,
+    // Fuer andere Mails der Anwendung (z. B. die Eintritts-Erinnerung in server.js).
+    mail: { sendMail, mailConfigured, describeMailError, appBaseUrl },
     async init() { await store().init(); await seedAdmin(); },
   };
 };

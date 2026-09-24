@@ -2473,6 +2473,7 @@
           ${emp.start_date ? ` · seit ${esc(formatDate(emp.start_date))}` : ''}
         </p>
         ${emp.email ? `<p class="hero-note"><a href="mailto:${esc(emp.email)}">${esc(emp.email)}</a></p>` : ''}
+        ${emp.archived_at ? '' : vorbereitungsZeile(emp)}
         <div>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
             <h4 style="margin:0">Aktuelle Geräte (${emp.devices.length})</h4>
@@ -2509,6 +2510,45 @@
         </div>` : ''}`;
       document.getElementById('employee-detail-modal').classList.remove('hidden');
     } catch (e) { toast(e.message, 'error'); }
+  }
+
+  // ── Vorbereitungs-Mail zum Eintritt ──
+  // Der Server schickt sie 7 Tage vor dem Eintrittsdatum von selbst; hier sieht
+  // man den Stand und kann sie von Hand ausloesen.
+  function vorbereitungsZeile(emp) {
+    let stand;
+    if (emp.onboarding_mail_sent_at) {
+      const von = emp.onboarding_mail_sent_by === 'automatisch' ? 'automatisch' : `von ${esc(emp.onboarding_mail_sent_by)}`;
+      stand = `Vorbereitungs-Mail gesendet am ${formatDate(emp.onboarding_mail_sent_at)} (${von})`;
+    } else if (emp.start_date && new Date(emp.start_date) > new Date()) {
+      const am = new Date(new Date(emp.start_date).getTime() - 7 * 86400000);
+      stand = am > new Date()
+        ? `Vorbereitungs-Mail geht automatisch am ${formatDate(am)} raus`
+        : 'Vorbereitungs-Mail geht in der nächsten Stunde automatisch raus';
+    } else {
+      stand = 'Keine Vorbereitungs-Mail gesendet';
+    }
+    return `<div class="hero-note" style="display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap">
+      <span style="display:flex;align-items:center;gap:8px">${icon('clock')} ${stand}</span>
+      <button class="btn btn-sm btn-ghost admin-only" onclick="sendeVorbereitungsMail(${emp.id}, '${escArg(fullName(emp))}', ${emp.onboarding_mail_sent_at ? 'true' : 'false'})">
+        ${emp.onboarding_mail_sent_at ? 'Erneut senden' : 'Vorbereitungs-Mail senden'}</button>
+    </div>`;
+  }
+
+  async function sendeVorbereitungsMail(id, name, schonGesendet) {
+    closeModal('employee-detail-modal');
+    const ok = await confirmDialog({
+      titel: schonGesendet ? 'Vorbereitungs-Mail erneut senden?' : 'Vorbereitungs-Mail senden?',
+      text: `Die Mail an die Inventar-Adresse kündigt ${name} mit Eintrittsdatum, Abteilung und Standort an, damit Arbeitskleidung, Geräte und Arbeitsplatz vorbereitet werden.`,
+      aktion: 'Senden',
+    });
+    if (ok) {
+      try {
+        const r = await api('POST', '/employees/' + id + '/onboarding-mail');
+        toast('Mail an ' + r.an + ' gesendet');
+      } catch (e) { toast(e.message, 'error'); }
+    }
+    showEmployeeDetails(id);
   }
 
   function openEmployeeModal(id) {

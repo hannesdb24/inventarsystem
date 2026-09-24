@@ -169,6 +169,9 @@ async function initDB() {
     // bestehende Zeilen NULL bleiben und weiterhin in den Listen erscheinen.
     await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ');
     await pool.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ');
+    // Wann und von wem die Vorbereitungs-Mail zum Eintritt verschickt wurde.
+    await pool.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS onboarding_mail_sent_at TIMESTAMPTZ');
+    await pool.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS onboarding_mail_sent_by TEXT');
     await pool.query('ALTER TABLE locations ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ');
     // Ein Zugang kann aus einer Rechnung stammen; der Preis steht je Position.
     await pool.query('ALTER TABLE apparel_movements ADD COLUMN IF NOT EXISTS receipt_id INTEGER REFERENCES apparel_receipts(id)');
@@ -327,7 +330,10 @@ app.put('/api/employees/:id', requireAdmin, async (req, res) => {
   try {
     if (usePostgres()) {
       const { rows } = await pool.query(
-        'UPDATE employees SET name=$1, first_name=$2, last_name=$3, department=$4, email=$5, start_date=$6, location_id=$7 WHERE id=$8 RETURNING *',
+        `UPDATE employees SET name=$1, first_name=$2, last_name=$3, department=$4, email=$5, start_date=$6, location_id=$7,
+           onboarding_mail_sent_at = CASE WHEN start_date IS DISTINCT FROM $6 THEN NULL ELSE onboarding_mail_sent_at END,
+           onboarding_mail_sent_by = CASE WHEN start_date IS DISTINCT FROM $6 THEN NULL ELSE onboarding_mail_sent_by END
+         WHERE id=$8 RETURNING *`,
         [fullName, first_name, last_name || null, department || null, email || null, start_date || null, location_id || null, id]
       );
       if (!rows.length) return res.status(404).json({ error: 'Nicht gefunden' });
@@ -338,6 +344,10 @@ app.put('/api/employees/:id', requireAdmin, async (req, res) => {
     const db = loadDB();
     const idx = db.employees.findIndex(e => e.id === id);
     if (idx === -1) return res.status(404).json({ error: 'Nicht gefunden' });
+    if ((db.employees[idx].start_date || null) !== (start_date || null)) {
+      delete db.employees[idx].onboarding_mail_sent_at;
+      delete db.employees[idx].onboarding_mail_sent_by;
+    }
     db.employees[idx] = { ...db.employees[idx], name: fullName, first_name, last_name: last_name || null, department: department || null, email: email || null, start_date: start_date || null, location_id: location_id || null };
     saveDB(db);
     res.json({ ...db.employees[idx], device_count: db.assignments.filter(a => a.employee_id === id && !a.returned_at).length, location_name: db.locations.find(l => l.id === location_id)?.name || null });
@@ -1404,12 +1414,164 @@ app.get('/api/stats', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── EINTRITTS-ERINNERUNG ─────────────────────────────────────────────────────
+// Faengt jemand in hoechstens 7 Tagen an, geht einmal eine Mail raus, damit
+// Arbeitskleidung, Geraete und Arbeitsplatz vorbereitet werden. Admins koennen
+// sie in der Mitarbeiteransicht auch von Hand ausloesen.
+
+const ERINNERUNG_TAGE_VORHER = 7;
+const ERINNERUNG_AN = () => (process.env.ONBOARDING_MAIL_TO || 'inventarsystem@dachbleche24.de').trim();
+const ZEITZONE = 'Europe/Berlin';
+
+// Heutiges Datum und Stunde in Berlin, nicht in der Zeitzone des Servers.
+function berlinHeute() {
+  const teile = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: ZEITZONE, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date()).map(t => [t.type, t.value]));
+  return { datum: `${teile.year}-${teile.month}-${teile.day}`, stunde: Number(teile.hour) };
+}
+function tageBis(isoVon, isoBis) {
+  return Math.round((Date.parse(isoBis + 'T00:00:00Z') - Date.parse(isoVon + 'T00:00:00Z')) / 86400000);
+}
+
+function eintrittsMail(e, { tage, ausgeloestVon }) {
+  const iso = isoDatum(e.start_date);
+  const datum = iso
+    ? new Date(iso + 'T12:00:00Z').toLocaleDateString('de-DE', { timeZone: ZEITZONE, weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })
+    : 'einem noch offenen Datum';
+  const wann = tage == null ? '' : tage === 0 ? ' – also heute' : tage === 1 ? ' – also morgen' : tage > 0 ? ` – in ${tage} Tagen` : '';
+  let link = null;
+  try { link = nutzer.mail.appBaseUrl(); } catch {}
+  return {
+    subject: `Neuer Mitarbeiter ab ${iso ? new Date(iso + 'T12:00:00Z').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '?'}: ${e.name} – bitte Arbeitssachen vorbereiten`,
+    text: [
+      'Hallo,', '',
+      `am ${datum} fängt ${e.name} bei uns an${wann}.`, '',
+      `Abteilung: ${e.department || 'noch nicht eingetragen'}`,
+      `Standort:  ${e.location_name || 'noch nicht eingetragen'}`,
+      ...(e.email ? [`E-Mail:    ${e.email}`] : []), '',
+      'Bitte bis dahin vorbereiten:',
+      '- Arbeitskleidung (Größen erfragen, falls noch nicht bekannt)',
+      '- Geräte wie Laptop oder Telefon und die nötigen Zugänge',
+      '- Arbeitsplatz', '',
+      ...(link ? [`Inventarsystem: ${link}`, ''] : []),
+      ausgeloestVon
+        ? `Diese Mail hat ${ausgeloestVon} im Inventarsystem ausgelöst.`
+        : `Automatische Erinnerung – sie kommt, sobald der Eintritt höchstens ${ERINNERUNG_TAGE_VORHER} Tage entfernt ist.`, '',
+      'Viele Grüße', 'dachbleche24 · Inventarsystem',
+    ].join('\n'),
+  };
+}
+
+async function mitarbeiterMitStandort(id) {
+  if (usePostgres()) {
+    return (await pool.query(`
+      SELECT e.*, l.name AS location_name FROM employees e LEFT JOIN locations l ON l.id = e.location_id WHERE e.id = $1
+    `, [id])).rows[0] || null;
+  }
+  const db = loadDB();
+  const e = db.employees.find(x => x.id === id);
+  return e ? { ...e, location_name: db.locations.find(l => l.id === e.location_id)?.name || null } : null;
+}
+
+// Vermerkt den Versand VOR dem Senden, damit zwei Laeufe nicht doppelt
+// schicken. Scheitert der Versand, wird der Vermerk zurueckgenommen.
+async function vermerkeErinnerung(id, von, nurWennOffen) {
+  if (usePostgres()) {
+    const { rowCount } = await pool.query(
+      `UPDATE employees SET onboarding_mail_sent_at = NOW(), onboarding_mail_sent_by = $2 WHERE id = $1 ${nurWennOffen ? 'AND onboarding_mail_sent_at IS NULL' : ''}`,
+      [id, von]);
+    return rowCount > 0;
+  }
+  const db = loadDB();
+  const e = db.employees.find(x => x.id === id);
+  if (!e || (nurWennOffen && e.onboarding_mail_sent_at)) return false;
+  e.onboarding_mail_sent_at = now(); e.onboarding_mail_sent_by = von;
+  saveDB(db);
+  return true;
+}
+async function nimmVermerkZurueck(id, vorher) {
+  if (usePostgres()) {
+    await pool.query('UPDATE employees SET onboarding_mail_sent_at = $2, onboarding_mail_sent_by = $3 WHERE id = $1',
+      [id, vorher.onboarding_mail_sent_at || null, vorher.onboarding_mail_sent_by || null]);
+    return;
+  }
+  const db = loadDB();
+  const e = db.employees.find(x => x.id === id);
+  if (e) { e.onboarding_mail_sent_at = vorher.onboarding_mail_sent_at || null; e.onboarding_mail_sent_by = vorher.onboarding_mail_sent_by || null; saveDB(db); }
+}
+
+async function sendeEintrittsMail(e, { ausgeloestVon, nurWennOffen }) {
+  const heute = berlinHeute().datum;
+  const iso = isoDatum(e.start_date);
+  if (!(await vermerkeErinnerung(e.id, ausgeloestVon || 'automatisch', nurWennOffen))) return false;
+  try {
+    const mail = eintrittsMail(e, { tage: iso ? tageBis(heute, iso) : null, ausgeloestVon });
+    await nutzer.mail.sendMail({ to: ERINNERUNG_AN(), subject: mail.subject, text: mail.text });
+    return true;
+  } catch (err) {
+    await nimmVermerkZurueck(e.id, e);
+    throw err;
+  }
+}
+
+async function pruefeEintritte() {
+  const { datum: heute, stunde } = berlinHeute();
+  if (stunde < 7 || stunde >= 19) return;   // nicht mitten in der Nacht
+  let offen;
+  if (usePostgres()) {
+    offen = (await pool.query(`
+      SELECT e.*, l.name AS location_name FROM employees e LEFT JOIN locations l ON l.id = e.location_id
+      WHERE e.archived_at IS NULL AND e.onboarding_mail_sent_at IS NULL AND e.start_date IS NOT NULL
+    `)).rows;
+  } else {
+    const db = loadDB();
+    offen = db.employees.filter(e => !e.archived_at && !e.onboarding_mail_sent_at && e.start_date)
+      .map(e => ({ ...e, location_name: db.locations.find(l => l.id === e.location_id)?.name || null }));
+  }
+  for (const e of offen) {
+    const iso = isoDatum(e.start_date);
+    if (!iso) continue;
+    const tage = tageBis(heute, iso);
+    if (tage < 0 || tage > ERINNERUNG_TAGE_VORHER) continue;
+    try {
+      if (await sendeEintrittsMail(e, { nurWennOffen: true })) console.log(`✉️  Eintritts-Erinnerung für ${e.name} (${iso}) an ${ERINNERUNG_AN()}`);
+    } catch (err) {
+      console.error(`Eintritts-Erinnerung für ${e.name} fehlgeschlagen:`, nutzer.mail.describeMailError(err));
+    }
+  }
+}
+
+function starteEintrittsErinnerung() {
+  if (!nutzer.mail.mailConfigured()) {
+    console.log('ℹ️  Kein SMTP eingerichtet – Eintritts-Erinnerungen sind aus');
+    return;
+  }
+  const lauf = () => pruefeEintritte().catch(err => console.error('Eintritts-Erinnerung:', err.message));
+  setTimeout(lauf, 30 * 1000);            // kurz nach dem Start, wenn alles steht
+  setInterval(lauf, 60 * 60 * 1000);      // danach stündlich
+}
+
+app.post('/api/employees/:id/onboarding-mail', requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (!nutzer.mail.mailConfigured()) return res.status(503).json({ error: 'Der Mailversand ist nicht eingerichtet (SMTP_HOST, SMTP_USER, SMTP_PASS).' });
+  try {
+    const e = await mitarbeiterMitStandort(id);
+    if (!e) return res.status(404).json({ error: 'Nicht gefunden' });
+    await sendeEintrittsMail(e, { ausgeloestVon: req.session.username, nurWennOffen: false });
+    res.json({ success: true, an: ERINNERUNG_AN() });
+  } catch (err) {
+    res.status(502).json({ error: nutzer.mail.describeMailError(err) });
+  }
+});
+
 // ─── START ────────────────────────────────────────────────────────────────────
 
 initDB().then(() => {
   app.listen(PORT, () => {
     console.log(`✅ Inventarsystem läuft auf http://localhost:${PORT}`);
   });
+  starteEintrittsErinnerung();
 }).catch(err => {
   console.error('Datenbankfehler:', err.message);
   process.exit(1);
