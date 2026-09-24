@@ -149,6 +149,30 @@ async function initDB() {
         returned_at TIMESTAMPTZ,
         notes TEXT
       );
+      -- Arbeitskleidung: ein Artikel je Groesse und Farbe. Den Bestand gibt es
+      -- nicht als Spalte, er ergibt sich aus den Buchungen.
+      CREATE TABLE IF NOT EXISTS apparel_items (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        category TEXT,
+        size TEXT NOT NULL,
+        color TEXT,
+        supplier TEXT,
+        article_number TEXT,
+        min_stock INTEGER,
+        archived_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS apparel_movements (
+        id SERIAL PRIMARY KEY,
+        item_id INTEGER NOT NULL REFERENCES apparel_items(id),
+        kind TEXT NOT NULL,
+        quantity INTEGER NOT NULL CHECK (quantity > 0),
+        employee_id INTEGER REFERENCES employees(id),
+        note TEXT,
+        booked_by TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
     `);
     // Spalten nachrüsten falls DB schon existierte
     await pool.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL');
@@ -227,6 +251,8 @@ function loadDB() {
   const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
   if (!db.users) db.users = [];
   if (!db.locations) db.locations = [];
+  if (!db.apparel_items) db.apparel_items = [];
+  if (!db.apparel_movements) db.apparel_movements = [];
   if (!db._seq.u) db._seq.u = 0;
   if (!db._seq.l) db._seq.l = 0;
   return db;
@@ -767,7 +793,7 @@ app.delete('/api/locations/:id', requireAdmin, async (req, res) => {
 
 // ─── WIEDERHERSTELLEN ─────────────────────────────────────────────────────────
 
-const ARCHIVIERBAR = { devices: 'devices', employees: 'employees', locations: 'locations' };
+const ARCHIVIERBAR = { devices: 'devices', employees: 'employees', locations: 'locations', 'apparel/items': 'apparel_items' };
 
 for (const [pfad, tabelle] of Object.entries(ARCHIVIERBAR)) {
   app.put(`/api/${pfad}/:id/restore`, requireAdmin, async (req, res) => {
@@ -786,6 +812,276 @@ for (const [pfad, tabelle] of Object.entries(ARCHIVIERBAR)) {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 }
+
+// ─── ARBEITSKLEIDUNG ──────────────────────────────────────────────────────────
+// Kleidung ist Mengenware im Lager Wriezen. Jede Veraenderung ist eine Buchung;
+// Lagerbestand und "ausgegeben" werden daraus gerechnet, nie gespeichert. So
+// laesst sich jede Zahl bis auf die Buchung zurueckverfolgen.
+
+const BUCHUNGSARTEN = ['zugang', 'ausgabe', 'rueckgabe_lager', 'rueckgabe_entsorgt', 'ausbuchung'];
+// Nur Admins buchen Ware ins Lager oder aus dem Lager heraus.
+const NUR_ADMIN = ['zugang', 'ausbuchung'];
+// Wie eine Buchung auf das Lager und auf den Mitarbeiter wirkt.
+const WIRKUNG_LAGER = { zugang: 1, rueckgabe_lager: 1, ausgabe: -1, ausbuchung: -1 };
+const WIRKUNG_MITARBEITER = { ausgabe: 1, rueckgabe_lager: -1, rueckgabe_entsorgt: -1 };
+
+// Dieselbe Wirkung als SQL-Ausdruck, damit sie nur an einer Stelle steht.
+function summeSql(wirkung, alias = 'm') {
+  const faelle = Object.entries(wirkung).map(([art, v]) => `WHEN '${art}' THEN ${v} * ${alias}.quantity`).join(' ');
+  return `COALESCE(SUM(CASE ${alias}.kind ${faelle} ELSE 0 END), 0)::int`;
+}
+function summeJs(bewegungen, wirkung) {
+  return bewegungen.reduce((s, m) => s + (wirkung[m.kind] || 0) * m.quantity, 0);
+}
+
+function kleidungFelder(body) {
+  const text = v => (v == null || String(v).trim() === '') ? null : String(v).trim();
+  const min = body.min_stock === '' || body.min_stock == null ? null : parseInt(body.min_stock);
+  return {
+    name: text(body.name), category: text(body.category), size: text(body.size), color: text(body.color),
+    supplier: text(body.supplier), article_number: text(body.article_number),
+    min_stock: Number.isInteger(min) && min >= 0 ? min : null,
+  };
+}
+
+app.get('/api/apparel/items', async (req, res) => {
+  try {
+    if (usePostgres()) {
+      const { rows } = await pool.query(`
+        SELECT i.*, ${summeSql(WIRKUNG_LAGER)} AS stock, ${summeSql(WIRKUNG_MITARBEITER)} AS issued
+        FROM apparel_items i LEFT JOIN apparel_movements m ON m.item_id = i.id
+        WHERE i.archived_at IS ${zeigeArchiv(req) ? 'NOT NULL' : 'NULL'}
+        GROUP BY i.id ORDER BY i.name, i.id
+      `);
+      return res.json(rows);
+    }
+    const db = loadDB();
+    res.json(db.apparel_items.filter(i => zeigeArchiv(req) ? i.archived_at : !i.archived_at).map(i => {
+      const bew = db.apparel_movements.filter(m => m.item_id === i.id);
+      return { ...i, stock: summeJs(bew, WIRKUNG_LAGER), issued: summeJs(bew, WIRKUNG_MITARBEITER) };
+    }).sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Artikel mit Bestand, wer ihn gerade hat, und allen Buchungen, neueste zuerst.
+app.get('/api/apparel/items/:id/details', async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    if (usePostgres()) {
+      const item = (await pool.query(`
+        SELECT i.*, ${summeSql(WIRKUNG_LAGER)} AS stock, ${summeSql(WIRKUNG_MITARBEITER)} AS issued
+        FROM apparel_items i LEFT JOIN apparel_movements m ON m.item_id = i.id
+        WHERE i.id = $1 GROUP BY i.id
+      `, [id])).rows[0];
+      if (!item) return res.status(404).json({ error: 'Nicht gefunden' });
+      const holders = (await pool.query(`
+        SELECT e.id AS employee_id, e.name AS employee_name, e.department, ${summeSql(WIRKUNG_MITARBEITER)} AS quantity
+        FROM apparel_movements m JOIN employees e ON e.id = m.employee_id
+        WHERE m.item_id = $1
+        GROUP BY e.id HAVING ${summeSql(WIRKUNG_MITARBEITER)} > 0 ORDER BY e.name
+      `, [id])).rows;
+      const movements = (await pool.query(`
+        SELECT m.*, e.name AS employee_name
+        FROM apparel_movements m LEFT JOIN employees e ON e.id = m.employee_id
+        WHERE m.item_id = $1 ORDER BY m.created_at DESC, m.id DESC
+      `, [id])).rows;
+      return res.json({ ...item, holders, movements });
+    }
+    const db = loadDB();
+    const item = db.apparel_items.find(i => i.id === id);
+    if (!item) return res.status(404).json({ error: 'Nicht gefunden' });
+    const bew = db.apparel_movements.filter(m => m.item_id === id);
+    const name = eid => db.employees.find(e => e.id === eid)?.name || null;
+    const holders = [...new Set(bew.filter(m => m.employee_id).map(m => m.employee_id))]
+      .map(eid => {
+        const e = db.employees.find(x => x.id === eid) || {};
+        return { employee_id: eid, employee_name: e.name, department: e.department, quantity: summeJs(bew.filter(m => m.employee_id === eid), WIRKUNG_MITARBEITER) };
+      })
+      .filter(h => h.quantity > 0).sort((a, b) => (a.employee_name || '').localeCompare(b.employee_name || ''));
+    const movements = [...bew].sort((a, b) => new Date(b.created_at) - new Date(a.created_at) || b.id - a.id)
+      .map(m => ({ ...m, employee_name: name(m.employee_id) }));
+    res.json({ ...item, stock: summeJs(bew, WIRKUNG_LAGER), issued: summeJs(bew, WIRKUNG_MITARBEITER), holders, movements });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Neuer Artikel; ein Anfangsbestand wird gleich als Zugang gebucht.
+app.post('/api/apparel/items', requireAdmin, async (req, res) => {
+  const f = kleidungFelder(req.body);
+  if (!f.name) return res.status(400).json({ error: 'Bezeichnung erforderlich' });
+  if (!f.size) return res.status(400).json({ error: 'Größe erforderlich' });
+  const anfang = parseInt(req.body.initial_quantity) || 0;
+  if (anfang < 0) return res.status(400).json({ error: 'Anfangsbestand darf nicht negativ sein' });
+  try {
+    if (usePostgres()) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const item = (await client.query(
+          'INSERT INTO apparel_items (name, category, size, color, supplier, article_number, min_stock) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+          [f.name, f.category, f.size, f.color, f.supplier, f.article_number, f.min_stock]
+        )).rows[0];
+        if (anfang > 0) await client.query(
+          "INSERT INTO apparel_movements (item_id, kind, quantity, note, booked_by) VALUES ($1, 'zugang', $2, 'Anfangsbestand', $3)",
+          [item.id, anfang, req.session.username]
+        );
+        await client.query('COMMIT');
+        return res.status(201).json({ ...item, stock: anfang, issued: 0 });
+      } catch (e) { await client.query('ROLLBACK'); throw e; }
+      finally { client.release(); }
+    }
+    const db = loadDB();
+    const item = { id: nextId(db, 'ai'), ...f, created_at: now() };
+    db.apparel_items.push(item);
+    if (anfang > 0) db.apparel_movements.push({ id: nextId(db, 'am'), item_id: item.id, kind: 'zugang', quantity: anfang, employee_id: null, note: 'Anfangsbestand', booked_by: req.session.username, created_at: now() });
+    saveDB(db);
+    res.status(201).json({ ...item, stock: anfang, issued: 0 });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/apparel/items/:id', requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id);
+  const f = kleidungFelder(req.body);
+  if (!f.name) return res.status(400).json({ error: 'Bezeichnung erforderlich' });
+  if (!f.size) return res.status(400).json({ error: 'Größe erforderlich' });
+  try {
+    if (usePostgres()) {
+      const { rows } = await pool.query(
+        'UPDATE apparel_items SET name=$1, category=$2, size=$3, color=$4, supplier=$5, article_number=$6, min_stock=$7 WHERE id=$8 RETURNING *',
+        [f.name, f.category, f.size, f.color, f.supplier, f.article_number, f.min_stock, id]
+      );
+      if (!rows.length) return res.status(404).json({ error: 'Nicht gefunden' });
+      return res.json(rows[0]);
+    }
+    const db = loadDB();
+    const item = db.apparel_items.find(i => i.id === id);
+    if (!item) return res.status(404).json({ error: 'Nicht gefunden' });
+    Object.assign(item, f);
+    saveDB(db);
+    res.json(item);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Archivieren geht erst, wenn nichts mehr im Lager liegt - sonst verschwaende
+// Ware still aus dem Bestand. Ausgegebene Teile bleiben beim Mitarbeiter sichtbar.
+app.delete('/api/apparel/items/:id', requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    if (usePostgres()) {
+      const { rows } = await pool.query(`SELECT ${summeSql(WIRKUNG_LAGER)} AS stock FROM apparel_movements m WHERE m.item_id=$1`, [id]);
+      if (rows[0].stock > 0) return res.status(400).json({ error: `Noch ${rows[0].stock} Stück im Lager – erst ausgeben oder ausbuchen` });
+      await pool.query('UPDATE apparel_items SET archived_at = NOW() WHERE id=$1', [id]);
+      return res.json({ success: true });
+    }
+    const db = loadDB();
+    const stock = summeJs(db.apparel_movements.filter(m => m.item_id === id), WIRKUNG_LAGER);
+    if (stock > 0) return res.status(400).json({ error: `Noch ${stock} Stück im Lager – erst ausgeben oder ausbuchen` });
+    const item = db.apparel_items.find(i => i.id === id);
+    if (item) item.archived_at = now();
+    saveDB(db);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Eine Buchung. Geprueft wird gegen den aktuellen Stand: Ausgeben nur, was im
+// Lager liegt, zuruecknehmen nur, was der Mitarbeiter tatsaechlich hat.
+app.post('/api/apparel/movements', async (req, res) => {
+  const { kind } = req.body;
+  const item_id = parseInt(req.body.item_id);
+  const quantity = Number(req.body.quantity);
+  const employee_id = req.body.employee_id ? parseInt(req.body.employee_id) : null;
+  const note = req.body.note ? String(req.body.note).trim() || null : null;
+
+  if (!BUCHUNGSARTEN.includes(kind)) return res.status(400).json({ error: 'Unbekannte Buchungsart' });
+  if (NUR_ADMIN.includes(kind) && req.session.userRole !== 'admin') return res.status(403).json({ error: 'Keine Berechtigung' });
+  if (!item_id) return res.status(400).json({ error: 'Artikel erforderlich' });
+  if (!Number.isInteger(quantity) || quantity < 1) return res.status(400).json({ error: 'Menge muss eine ganze Zahl ab 1 sein' });
+  const mitMitarbeiter = kind in WIRKUNG_MITARBEITER;
+  if (mitMitarbeiter && !employee_id) return res.status(400).json({ error: 'Mitarbeiter erforderlich' });
+  if (kind === 'ausbuchung' && !note) return res.status(400).json({ error: 'Grund erforderlich' });
+
+  // Gemeinsame Pruefung fuer beide Speicher; liefert eine Fehlermeldung oder null.
+  function pruefe(item, stock, beimMitarbeiter, mitarbeiter) {
+    if (!item) return 'Artikel nicht gefunden';
+    if (item.archived_at && kind !== 'rueckgabe_lager' && kind !== 'rueckgabe_entsorgt') return 'Artikel ist archiviert';
+    if (mitMitarbeiter && !mitarbeiter) return 'Mitarbeiter nicht gefunden';
+    if (kind === 'ausgabe' && mitarbeiter.archived_at) return 'Mitarbeiter ist archiviert';
+    if ((kind === 'ausgabe' || kind === 'ausbuchung') && quantity > stock)
+      return `Nur ${stock} Stück im Lager`;
+    if ((kind === 'rueckgabe_lager' || kind === 'rueckgabe_entsorgt') && quantity > beimMitarbeiter)
+      return `Der Mitarbeiter hat nur ${beimMitarbeiter} Stück davon`;
+    return null;
+  }
+
+  try {
+    if (usePostgres()) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        // Die Zeilensperre reiht gleichzeitige Buchungen auf denselben Artikel
+        // hintereinander, damit zwei Ausgaben nicht dasselbe letzte Stueck nehmen.
+        const item = (await client.query('SELECT * FROM apparel_items WHERE id=$1 FOR UPDATE', [item_id])).rows[0];
+        const stock = (await client.query(`SELECT ${summeSql(WIRKUNG_LAGER)} AS s FROM apparel_movements m WHERE m.item_id=$1`, [item_id])).rows[0].s;
+        let beimMitarbeiter = 0, mitarbeiter = null;
+        if (mitMitarbeiter) {
+          mitarbeiter = (await client.query('SELECT * FROM employees WHERE id=$1', [employee_id])).rows[0] || null;
+          beimMitarbeiter = (await client.query(`SELECT ${summeSql(WIRKUNG_MITARBEITER)} AS s FROM apparel_movements m WHERE m.item_id=$1 AND m.employee_id=$2`, [item_id, employee_id])).rows[0].s;
+        }
+        const fehler = pruefe(item, stock, beimMitarbeiter, mitarbeiter);
+        if (fehler) { await client.query('ROLLBACK'); return res.status(400).json({ error: fehler }); }
+        const { rows } = await client.query(
+          'INSERT INTO apparel_movements (item_id, kind, quantity, employee_id, note, booked_by) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+          [item_id, kind, quantity, mitMitarbeiter ? employee_id : null, note, req.session.username]
+        );
+        await client.query('COMMIT');
+        return res.status(201).json(rows[0]);
+      } catch (e) { await client.query('ROLLBACK'); throw e; }
+      finally { client.release(); }
+    }
+    const db = loadDB();
+    const item = db.apparel_items.find(i => i.id === item_id);
+    const bew = db.apparel_movements.filter(m => m.item_id === item_id);
+    const mitarbeiter = mitMitarbeiter ? db.employees.find(e => e.id === employee_id) || null : null;
+    const beimMitarbeiter = mitMitarbeiter ? summeJs(bew.filter(m => m.employee_id === employee_id), WIRKUNG_MITARBEITER) : 0;
+    const fehler = pruefe(item, summeJs(bew, WIRKUNG_LAGER), beimMitarbeiter, mitarbeiter);
+    if (fehler) return res.status(400).json({ error: fehler });
+    const buchung = { id: nextId(db, 'am'), item_id, kind, quantity, employee_id: mitMitarbeiter ? employee_id : null, note, booked_by: req.session.username, created_at: now() };
+    db.apparel_movements.push(buchung);
+    saveDB(db);
+    res.status(201).json(buchung);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Kleidung eines Mitarbeiters: was er gerade hat, und jede Ausgabe und
+// Rueckgabe als Nachweis.
+app.get('/api/employees/:id/apparel', async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    if (usePostgres()) {
+      const held = (await pool.query(`
+        SELECT i.id AS item_id, i.name, i.size, i.color, i.category, ${summeSql(WIRKUNG_MITARBEITER)} AS quantity
+        FROM apparel_movements m JOIN apparel_items i ON i.id = m.item_id
+        WHERE m.employee_id = $1
+        GROUP BY i.id HAVING ${summeSql(WIRKUNG_MITARBEITER)} > 0 ORDER BY i.name, i.size
+      `, [id])).rows;
+      const movements = (await pool.query(`
+        SELECT m.*, i.name, i.size, i.color
+        FROM apparel_movements m JOIN apparel_items i ON i.id = m.item_id
+        WHERE m.employee_id = $1 ORDER BY m.created_at DESC, m.id DESC
+      `, [id])).rows;
+      return res.json({ held, movements });
+    }
+    const db = loadDB();
+    const bew = db.apparel_movements.filter(m => m.employee_id === id);
+    const artikel = iid => db.apparel_items.find(i => i.id === iid) || {};
+    const held = [...new Set(bew.map(m => m.item_id))].map(iid => {
+      const i = artikel(iid);
+      return { item_id: iid, name: i.name, size: i.size, color: i.color, category: i.category, quantity: summeJs(bew.filter(m => m.item_id === iid), WIRKUNG_MITARBEITER) };
+    }).filter(h => h.quantity > 0).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    const movements = [...bew].sort((a, b) => new Date(b.created_at) - new Date(a.created_at) || b.id - a.id)
+      .map(m => { const i = artikel(m.item_id); return { ...m, name: i.name, size: i.size, color: i.color }; });
+    res.json({ held, movements });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // ─── CSV IMPORT ───────────────────────────────────────────────────────────────
 

@@ -509,6 +509,7 @@
     .badge-red    { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); border-color: color-mix(in srgb, var(--danger) 22%, transparent); }
     .badge-blue   { color: var(--info); background: color-mix(in srgb, var(--info) 10%, transparent); border-color: color-mix(in srgb, var(--info) 22%, transparent); }
     .badge-gray   { color: var(--muted-foreground); background: var(--track); border-color: var(--border); }
+    .badge-warn   { color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, transparent); border-color: color-mix(in srgb, var(--warning) 22%, transparent); }
 
     .role-badge {
       display: inline-flex; align-items: center;
@@ -569,6 +570,7 @@
        FORMULARE
        ═══════════════════════════════════════════════════════════════════════ */
     .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group.hidden { display: none; }
     label { font-size: 13px; font-weight: 500; color: var(--foreground); }
     .hint { font-size: 12px; color: var(--muted-foreground); }
 
@@ -594,6 +596,25 @@
     select option { background: var(--card); color: var(--foreground); }
     input[type="date"]::-webkit-calendar-picker-indicator { filter: var(--picker-filter); cursor: pointer; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* Auswahlkacheln (DESIGN.md, Signatur-Baustein): Auswahl als Kachelreihe
+       statt Dropdown. Gewaehlt = accent-soft mit 1,5px Akzent-Innenring. */
+    .kacheln { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .kachel {
+      display: flex; flex-direction: column; gap: 2px;
+      min-height: var(--h-control-lg); padding: 10px 12px;
+      border: none; border-radius: var(--radius-control-lg);
+      background: var(--background); color: var(--foreground);
+      box-shadow: inset 0 0 0 1px var(--border);
+      font-family: inherit; font-size: 14px; font-weight: 500; text-align: left; cursor: pointer;
+      transition: background var(--dur) var(--ease-fluid), box-shadow var(--dur) var(--ease-fluid);
+    }
+    .kachel:hover { box-shadow: inset 0 0 0 1px var(--border-hover); }
+    .kachel .hint { font-weight: 400; }
+    .kachel[aria-checked="true"] {
+      background: var(--accent-soft); color: var(--accent-strong); font-weight: 600;
+      box-shadow: inset 0 0 0 1.5px var(--accent);
+    }
 
     /* ═══════════════════════════════════════════════════════════════════════
        MODAL
@@ -776,7 +797,7 @@
     @media (max-width: 560px) {
       .col-narrow { display: none; }
       .stats-grid { grid-template-columns: 1fr; gap: 12px; }
-      .form-row { grid-template-columns: 1fr; }
+      .form-row, .kacheln { grid-template-columns: 1fr; }
       .page-actions { width: 100%; }
       .legend { gap: 8px 16px; }
       .modal-body { padding: 18px 16px; }
@@ -825,7 +846,8 @@
     <g id="i-monitor" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="12.5" rx="2"/><path d="M8.5 20.5h7M12 16.5v4"/></g>
     <g id="i-archive" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1.5"/><path d="M5 8v10.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V8"/><path d="M10 12h4"/></g>
     <g id="i-restore" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a9 9 0 1 1 1.6 6"/><path d="M3 5v5h5"/></g>
-    <g id="i-alert" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16.2h.01"/></g>
+    <g id="i-shirt" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3.5 4 6l-1.5 4.5 3 1.2V20.5h13v-8.8l3-1.2L20 6l-5-2.5a3 3 0 0 1-6 0Z"/></g>
+    <g id="i-alert"fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16.2h.01"/></g>
   </defs>
 </svg>
 
@@ -888,6 +910,9 @@
       <p class="nav-section">Bestand</p>
       <button class="nav-item" data-tab="devices" onclick="showTab('devices', this)">
         <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-device"/></svg> Ger&auml;te <span class="nav-count" id="nav-count-devices"></span>
+      </button>
+      <button class="nav-item" data-tab="apparel" onclick="showTab('apparel', this)">
+        <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-shirt"/></svg> Arbeitskleidung <span class="nav-count" id="nav-count-apparel"></span>
       </button>
       <button class="nav-item" data-tab="employees" onclick="showTab('employees', this)">
         <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-users"/></svg> Mitarbeiter <span class="nav-count" id="nav-count-employees"></span>
@@ -1045,6 +1070,47 @@
                 <th class="col-optional zahl">Preis</th><th></th>
               </tr></thead>
               <tbody id="devices-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ARBEITSKLEIDUNG ───────────────────────────────────────────── -->
+      <div id="tab-apparel" class="tab">
+        <div class="page-head">
+          <div>
+            <h1>Arbeitskleidung</h1>
+            <p>Lager Wriezen &middot; Bestand, Ausgabe und R&uuml;ckgabe</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-accent admin-only" onclick="openApparelItemModal()">
+              <svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg> Artikel anlegen
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="filter-pills" role="tablist" aria-label="Arbeitskleidung filtern">
+              <button class="pill" role="tab" aria-selected="true"  onclick="filterApparel('all', this)">Alle</button>
+              <button class="pill" role="tab" aria-selected="false" onclick="filterApparel('nachbestellen', this)">Nachbestellen</button>
+              <button class="pill" role="tab" aria-selected="false" onclick="filterApparel('archiv', this)">Archiv</button>
+            </div>
+            <div class="card-tools">
+              <span class="search-wrap">
+                <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-search"/></svg>
+                <input type="text" class="search-box" placeholder="Artikel, Gr&ouml;&szlig;e, Lieferant&hellip;" oninput="searchApparel(this.value)" />
+              </span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Artikel</th><th>Gr&ouml;&szlig;e</th><th class="col-optional">Farbe</th>
+                <th class="col-optional">Kategorie</th><th class="zahl">Im Lager</th>
+                <th class="col-optional zahl">Ausgegeben</th><th class="col-narrow">Status</th><th></th>
+              </tr></thead>
+              <tbody id="apparel-tbody"></tbody>
             </table>
           </div>
         </div>
@@ -1469,6 +1535,137 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="apparel-item-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="apparel-item-modal-title">Artikel anlegen</h3>
+      <button class="modal-close" onclick="closeModal('apparel-item-modal')" aria-label="Schlie&szlig;en"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="apparel-item-id" />
+      <div class="form-group">
+        <label for="apparel-item-name">Bezeichnung *</label>
+        <input id="apparel-item-name" type="text" placeholder="z.B. Warnschutzjacke Winter" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="apparel-item-size">Gr&ouml;&szlig;e *</label>
+          <input id="apparel-item-size" type="text" list="apparel-sizes" placeholder="z.B. L, 52 oder 42" />
+        </div>
+        <div class="form-group">
+          <label for="apparel-item-color">Farbe</label>
+          <input id="apparel-item-color" type="text" placeholder="z.B. Gelb" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="apparel-item-category">Kategorie</label>
+        <input id="apparel-item-category" type="text" list="apparel-categories" placeholder="z.B. Jacke" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="apparel-item-supplier">Lieferant</label>
+          <input id="apparel-item-supplier" type="text" placeholder="z.B. Engelbert Strauss" />
+        </div>
+        <div class="form-group">
+          <label for="apparel-item-article-number">Artikelnummer Lieferant</label>
+          <input id="apparel-item-article-number" type="text" placeholder="z.B. 92511-L-GE" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="apparel-item-min-stock">Mindestbestand</label>
+          <input id="apparel-item-min-stock" type="number" min="0" step="1" inputmode="numeric" placeholder="kein" />
+          <p class="hint">Darunter hei&szlig;t es &bdquo;Nachbestellen&ldquo;.</p>
+        </div>
+        <div class="form-group" id="apparel-item-initial-group">
+          <label for="apparel-item-initial">Anfangsbestand</label>
+          <input id="apparel-item-initial" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
+          <p class="hint">Wird als Zugang gebucht.</p>
+        </div>
+      </div>
+      <datalist id="apparel-categories">
+        <option value="Jacke"></option><option value="Weste"></option><option value="Hose"></option>
+        <option value="Latzhose"></option><option value="Shirt"></option><option value="Pullover"></option>
+        <option value="Sicherheitsschuhe"></option><option value="Handschuhe"></option><option value="Kopfschutz"></option>
+        <option value="Geh&ouml;rschutz"></option><option value="Schutzbrille"></option><option value="Sonstiges"></option>
+      </datalist>
+      <datalist id="apparel-sizes">
+        <option value="XS"></option><option value="S"></option><option value="M"></option><option value="L"></option>
+        <option value="XL"></option><option value="XXL"></option><option value="3XL"></option><option value="4XL"></option>
+        <option value="Einheitsgr."></option>
+      </datalist>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('apparel-item-modal')">Abbrechen</button>
+      <button class="btn btn-primary" onclick="saveApparelItem()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="apparel-move-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="apparel-move-title">Kleidung ausgeben</h3>
+      <button class="modal-close" onclick="closeModal('apparel-move-modal')" aria-label="Schlie&szlig;en"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group" id="apparel-move-item-fest">
+        <label for="apparel-move-item-name">Artikel</label>
+        <input id="apparel-move-item-name" type="text" disabled />
+      </div>
+      <div class="form-group" id="apparel-move-item-wahl">
+        <label for="apparel-move-item-select">Artikel *</label>
+        <select id="apparel-move-item-select" onchange="apparelMoveHinweis()"></select>
+      </div>
+      <div class="form-group" id="apparel-move-employee-fest">
+        <label for="apparel-move-employee-name">Mitarbeiter</label>
+        <input id="apparel-move-employee-name" type="text" disabled />
+      </div>
+      <div class="form-group" id="apparel-move-employee-wahl">
+        <label for="apparel-move-employee-select">Mitarbeiter *</label>
+        <select id="apparel-move-employee-select"></select>
+      </div>
+      <div class="form-group">
+        <label for="apparel-move-quantity">Menge *</label>
+        <input id="apparel-move-quantity" type="number" min="1" step="1" inputmode="numeric" value="1" />
+        <p class="hint" id="apparel-move-quantity-hint"></p>
+      </div>
+      <div class="form-group" id="apparel-move-verbleib-group">
+        <span class="label" id="apparel-move-verbleib-label" style="font-size:13px;font-weight:500">Verbleib *</span>
+        <div class="kacheln" role="radiogroup" aria-labelledby="apparel-move-verbleib-label">
+          <button type="button" class="kachel" role="radio" aria-checked="false" data-art="rueckgabe_lager" onclick="waehleVerbleib(this)">
+            Zur&uuml;ck ins Lager<span class="hint">Kann wieder ausgegeben werden</span>
+          </button>
+          <button type="button" class="kachel" role="radio" aria-checked="false" data-art="rueckgabe_entsorgt" onclick="waehleVerbleib(this)">
+            Entsorgt<span class="hint">Bestand bleibt unver&auml;ndert</span>
+          </button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="apparel-move-note" id="apparel-move-note-label">Notiz</label>
+        <input id="apparel-move-note" type="text" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('apparel-move-modal')">Abbrechen</button>
+      <button class="btn btn-primary" id="apparel-move-save" onclick="saveApparelMove()">Ausgeben</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="apparel-detail-modal">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-header">
+      <h3 id="apparel-detail-title">Artikel</h3>
+      <button class="modal-close" onclick="closeModal('apparel-detail-modal')" aria-label="Schlie&szlig;en"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body" id="apparel-detail-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('apparel-detail-modal')">Schlie&szlig;en</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay hidden" id="import-modal">
   <div class="modal">
     <div class="modal-header">
@@ -1534,6 +1731,7 @@
     window.scrollTo({ top: 0, behavior: 'instant' });
     if (name === 'dashboard') loadDashboard();
     if (name === 'devices')   renderDevices();
+    if (name === 'apparel')   loadApparel();
     if (name === 'employees') renderEmployees();
     if (name === 'locations') loadLocations();
     if (name === 'history')   loadHistory();
@@ -1578,6 +1776,7 @@
     if (!deviceArchiv)   document.getElementById('nav-count-devices').textContent   = allDevices.length   || '';
     if (!employeeArchiv) document.getElementById('nav-count-employees').textContent = allEmployees.length || '';
     if (!locationArchiv) document.getElementById('nav-count-locations').textContent = allLocations.length || '';
+    if (!apparelArchiv)  document.getElementById('nav-count-apparel').textContent   = allApparel.length   || '';
   }
 
   // ─── API ─────────────────────────────────────────────────────────────────────
@@ -1638,7 +1837,7 @@
     try { await api('POST', '/auth/logout'); } catch {}
     currentUser = null;
     document.body.className = '';
-    allDevices = []; allEmployees = []; allAssignments = []; allUsers = []; allLocations = [];
+    allDevices = []; allEmployees = []; allAssignments = []; allUsers = []; allLocations = []; allApparel = [];
     document.getElementById('login-overlay').classList.remove('hidden');
     document.getElementById('login-username').value = '';
   }
@@ -1755,7 +1954,7 @@
   }
 
   async function filterDevices(f, el) {
-    document.querySelectorAll('.filter-pills .pill').forEach(p => p.setAttribute('aria-selected', 'false'));
+    el.parentElement.querySelectorAll('.pill').forEach(p => p.setAttribute('aria-selected', 'false'));
     el.setAttribute('aria-selected', 'true');
     const warArchiv = deviceArchiv;
     deviceArchiv = (f === 'archiv');
@@ -1970,8 +2169,30 @@
 
   async function showEmployeeDetails(id) {
     try {
-      const emp = await api('GET', '/employees/' + id + '/details');
+      const [emp, kleidung] = await Promise.all([
+        api('GET', '/employees/' + id + '/details'),
+        api('GET', '/employees/' + id + '/apparel'),
+      ]);
       document.getElementById('employee-detail-title').textContent = fullName(emp);
+      const zurueck = `zurueck: { art: 'mitarbeiter', id: ${emp.id} }`;
+      const kleidungTeile = kleidung.held.reduce((s, h) => s + h.quantity, 0);
+      const kleidungRows = kleidung.held.length
+        ? kleidung.held.map(h => `<tr>
+            <td><strong>${esc(h.name)}</strong>${h.color ? ` <span class="faint">${esc(h.color)}</span>` : ''}</td>
+            <td><span class="num">${esc(h.size)}</span></td>
+            <td class="zahl">${h.quantity}</td>
+            <td><div class="row-actions">
+              <button class="btn btn-sm btn-warning" onclick="openApparelMove('rueckgabe', { itemId: ${h.item_id}, employeeId: ${emp.id}, ${zurueck} })" title="Zurücknehmen">${icon('return')} <span class="btn-label">Zurücknehmen</span></button>
+            </div></td>
+          </tr>`).join('')
+        : `<tr><td colspan="4"><div class="empty" style="padding:22px"><p class="empty-note">Keine Kleidung ausgegeben</p></div></td></tr>`;
+      const nachweisRows = kleidung.movements.map(m => `<tr>
+          <td><span class="dim">${formatDate(m.created_at)}</span></td>
+          <td>${esc(artikelName(m))}${m.note ? `<span class="faint" style="display:block;font-size:12px">${esc(m.note)}</span>` : ''}</td>
+          <td>${esc(BUCHUNG_WORT[m.kind] || m.kind)}</td>
+          <td class="zahl">${m.quantity}</td>
+          <td class="col-optional"><span class="dim">${esc(m.booked_by) || '–'}</span></td>
+        </tr>`).join('');
       const geraeteRows = emp.devices.length
         ? emp.devices.map(d => `<tr>
             <td><strong>${esc(d.name)}</strong>${d.serial_number ? ` <span class="faint">${esc(d.serial_number)}</span>` : ''}</td>
@@ -2010,6 +2231,23 @@
           <h4>Früher zugewiesen (${emp.history.length})</h4>
           <div class="table-wrap">
             <table><thead><tr><th>Gerät</th><th>Von</th><th>Bis</th></tr></thead><tbody>${verlaufRows}</tbody></table>
+          </div>
+        </div>` : ''}
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <h4 style="margin:0">Arbeitskleidung (${kleidungTeile} ${kleidungTeile === 1 ? 'Teil' : 'Teile'})</h4>
+            ${emp.archived_at ? '' : `<button class="btn btn-sm btn-primary"
+              onclick="openApparelMove('ausgabe', { employeeId: ${emp.id}, ${zurueck} })"
+              title="Kleidung ausgeben">${icon('shirt')} <span class="btn-label">Kleidung ausgeben</span></button>`}
+          </div>
+          <div class="table-wrap">
+            <table><thead><tr><th>Artikel</th><th>Größe</th><th class="zahl">Menge</th><th></th></tr></thead><tbody>${kleidungRows}</tbody></table>
+          </div>
+        </div>
+        ${nachweisRows ? `<div>
+          <h4>Ausgabe-Nachweis (${kleidung.movements.length})</h4>
+          <div class="table-wrap">
+            <table><thead><tr><th>Datum</th><th>Artikel</th><th>Buchung</th><th class="zahl">Menge</th><th class="col-optional">Gebucht von</th></tr></thead><tbody>${nachweisRows}</tbody></table>
           </div>
         </div>` : ''}`;
       document.getElementById('employee-detail-modal').classList.remove('hidden');
@@ -2062,9 +2300,326 @@
     } catch (e) { toast(e.message, 'error'); }
   }
 
+  // ─── ARBEITSKLEIDUNG ─────────────────────────────────────────────────────────
+  // Mengenware im Lager Wriezen. Der Bestand kommt fertig gerechnet vom Server
+  // (stock = im Lager, issued = bei Mitarbeitern).
+  let allApparel = [], apparelFilter = 'all', apparelSearch = '', apparelArchiv = false;
+
+  const BUCHUNG_WORT = {
+    zugang: 'Zugang', ausgabe: 'Ausgabe', rueckgabe_lager: 'Rückgabe ins Lager',
+    rueckgabe_entsorgt: 'Rückgabe, entsorgt', ausbuchung: 'Ausbuchung',
+  };
+  // Vorzeichen fuer die Mengenspalte: was das Lager fuellt, steht mit +.
+  const BUCHUNG_LAGER = { zugang: '+', rueckgabe_lager: '+', ausgabe: '−', ausbuchung: '−', rueckgabe_entsorgt: '' };
+
+  // Konfektionsgroessen in ihrer natuerlichen Folge, danach Zahlengroessen.
+  const GROESSEN_FOLGE = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL'];
+  function groessenRang(s) {
+    const g = String(s || '').toUpperCase().trim();
+    const i = GROESSEN_FOLGE.indexOf(g);
+    if (i >= 0) return i;
+    const n = parseFloat(g.replace(',', '.'));
+    return isNaN(n) ? 1000 : 100 + n;
+  }
+  function artikelFolge(a, b) {
+    return a.name.localeCompare(b.name, 'de') || (a.color || '').localeCompare(b.color || '', 'de') ||
+      groessenRang(a.size) - groessenRang(b.size);
+  }
+  function artikelName(i) {
+    return [i.name, i.size, i.color].filter(Boolean).join(' · ');
+  }
+  function mussNachbestellt(i) {
+    return i.min_stock != null && i.stock < i.min_stock;
+  }
+  function lagerBadge(i) {
+    if (apparelArchiv) return '<span class="badge badge-gray">Archiviert</span>';
+    if (i.stock <= 0) return '<span class="badge badge-red">Leer</span>';
+    if (mussNachbestellt(i)) return '<span class="badge badge-warn">Nachbestellen</span>';
+    return '<span class="badge badge-green">Verfügbar</span>';
+  }
+
+  async function loadApparel() {
+    skelett('apparel-tbody', 8, 6);
+    allApparel = (await api('GET', '/apparel/items' + (apparelArchiv ? '?archiviert=1' : ''))).sort(artikelFolge);
+    updateNavCounts();
+    renderApparel();
+  }
+
+  async function filterApparel(f, el) {
+    el.parentElement.querySelectorAll('.pill').forEach(p => p.setAttribute('aria-selected', 'false'));
+    el.setAttribute('aria-selected', 'true');
+    const warArchiv = apparelArchiv;
+    apparelArchiv = (f === 'archiv');
+    apparelFilter = apparelArchiv ? 'all' : f;
+    if (warArchiv !== apparelArchiv) await loadApparel();
+    else renderApparel();
+  }
+
+  function searchApparel(q) { apparelSearch = q.toLowerCase(); renderApparel(); }
+
+  function renderApparel() {
+    let items = allApparel;
+    if (apparelFilter === 'nachbestellen') items = items.filter(i => i.stock <= 0 || mussNachbestellt(i));
+    if (apparelSearch) items = items.filter(i =>
+      [i.name, i.size, i.color, i.category, i.supplier, i.article_number]
+        .some(v => (v || '').toLowerCase().includes(apparelSearch))
+    );
+    const tbody = document.getElementById('apparel-tbody');
+    if (!items.length) {
+      tbody.innerHTML = allApparel.length
+        ? emptyRow(8, 'Keine Treffer', apparelFilter === 'nachbestellen' ? 'Nichts muss nachbestellt werden.' : 'Andere Suche führt vielleicht weiter.', 'search')
+        : emptyRow(8, apparelArchiv ? 'Archiv ist leer' : 'Noch keine Arbeitskleidung', apparelArchiv ? '' : 'Lege den ersten Artikel an.', 'shirt');
+      return;
+    }
+    tbody.innerHTML = items.map(i => `
+      <tr>
+        <th scope="row" class="zeilenkopf">
+          <button class="zeilenlink" onclick="showApparelDetails(${i.id})">${esc(i.name)}</button>
+          ${i.supplier || i.article_number ? `<span class="faint">${esc([i.supplier, i.article_number].filter(Boolean).join(' · '))}</span>` : ''}
+        </th>
+        <td><strong class="num">${esc(i.size)}</strong></td>
+        <td class="col-optional"><span class="dim">${esc(i.color) || '–'}</span></td>
+        <td class="col-optional"><span class="dim">${esc(i.category) || '–'}</span></td>
+        <td class="zahl">${i.stock}${i.min_stock != null ? `<span class="faint" style="display:block;font-size:12px">min. ${i.min_stock}</span>` : ''}</td>
+        <td class="col-optional zahl">${i.issued || '<span class="faint">0</span>'}</td>
+        <td class="col-narrow">${lagerBadge(i)}</td>
+        <td>
+          <div class="row-actions">
+            ${apparelArchiv ? `<button class="btn btn-sm btn-ghost admin-only" onclick="restoreEintrag('apparel/items', ${i.id}, '${escArg(artikelName(i))}')" title="Wiederherstellen">${icon('restore')} <span class="btn-label">Wiederherstellen</span></button>` : `
+            ${i.stock > 0 ? `<button class="btn btn-sm btn-success" onclick="openApparelMove('ausgabe', { itemId: ${i.id} })" title="Ausgeben">${icon('assign')} <span class="btn-label">Ausgeben</span></button>` : ''}
+            <button class="btn btn-icon admin-only" onclick="openApparelMove('zugang', { itemId: ${i.id} })" title="Zugang buchen" aria-label="Zugang buchen">${icon('plus')}</button>
+            <button class="btn btn-icon admin-only" onclick="openApparelItemModal(${i.id})" title="Bearbeiten" aria-label="Bearbeiten">${icon('edit')}</button>
+            <button class="btn btn-icon danger admin-only" onclick="archiveApparelItem(${i.id})" title="Archivieren" aria-label="Archivieren">${icon('archive')}</button>`}
+          </div>
+        </td>
+      </tr>`).join('');
+  }
+
+  async function showApparelDetails(id) {
+    try {
+      const it = await api('GET', '/apparel/items/' + id + '/details');
+      document.getElementById('apparel-detail-title').textContent = artikelName(it);
+      const archiviert = !!it.archived_at;
+      const halterRows = it.holders.length
+        ? it.holders.map(h => `<tr>
+            <td><strong>${esc(h.employee_name) || 'Unbekannt'}</strong>${h.department ? ` <span class="faint">${esc(h.department)}</span>` : ''}</td>
+            <td class="zahl">${h.quantity}</td>
+            <td><div class="row-actions">
+              <button class="btn btn-sm btn-warning" onclick="openApparelMove('rueckgabe', { itemId: ${it.id}, employeeId: ${h.employee_id}, zurueck: { art: 'artikel', id: ${it.id} } })" title="Zurücknehmen">${icon('return')} <span class="btn-label">Zurücknehmen</span></button>
+            </div></td>
+          </tr>`).join('')
+        : `<tr><td colspan="3"><div class="empty" style="padding:22px"><p class="empty-note">Niemand hat diesen Artikel gerade</p></div></td></tr>`;
+      const buchungRows = it.movements.map(m => `<tr>
+          <td><span class="dim">${formatDate(m.created_at)}</span></td>
+          <td>${esc(BUCHUNG_WORT[m.kind] || m.kind)}</td>
+          <td class="zahl">${BUCHUNG_LAGER[m.kind] || ''}${m.quantity}</td>
+          <td>${m.employee_name ? esc(m.employee_name) : dash()}${m.note ? `<span class="faint" style="display:block;font-size:12px">${esc(m.note)}</span>` : ''}</td>
+          <td class="col-optional"><span class="dim">${esc(m.booked_by) || '–'}</span></td>
+        </tr>`).join('');
+      const zurueck = `{ zurueck: { art: 'artikel', id: ${it.id} }, itemId: ${it.id} }`;
+      document.getElementById('apparel-detail-body').innerHTML = `
+        <p class="hero-note">
+          ${esc([it.category, it.supplier, it.article_number].filter(Boolean).join(' · ')) || 'Keine weiteren Angaben'}
+        </p>
+        <p class="hero-note">
+          ${lagerBadge(it)}
+          Im Lager <b class="num" style="color:var(--foreground)">${it.stock}</b>
+          · ausgegeben <b class="num" style="color:var(--foreground)">${it.issued}</b>
+          ${it.min_stock != null ? ` · Mindestbestand <span class="num">${it.min_stock}</span>` : ''}
+        </p>
+        ${archiviert ? '' : `<div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${it.stock > 0 ? `<button class="btn btn-sm btn-primary" onclick="openApparelMove('ausgabe', ${zurueck})">${icon('assign')} Ausgeben</button>` : ''}
+          <button class="btn btn-sm btn-ghost admin-only" onclick="openApparelMove('zugang', ${zurueck})">${icon('plus')} Zugang buchen</button>
+          ${it.stock > 0 ? `<button class="btn btn-sm btn-ghost admin-only" onclick="openApparelMove('ausbuchung', ${zurueck})">${icon('trash')} Ausbuchen</button>` : ''}
+        </div>`}
+        <div>
+          <h4>Ausgegeben an (${it.holders.length})</h4>
+          <div class="table-wrap">
+            <table><thead><tr><th>Mitarbeiter</th><th class="zahl">Menge</th><th></th></tr></thead><tbody>${halterRows}</tbody></table>
+          </div>
+        </div>
+        <div>
+          <h4>Buchungen (${it.movements.length})</h4>
+          <div class="table-wrap">
+            <table><thead><tr><th>Datum</th><th>Buchung</th><th class="zahl">Menge</th><th>Mitarbeiter · Notiz</th><th class="col-optional">Gebucht von</th></tr></thead>
+            <tbody>${buchungRows || `<tr><td colspan="5"><div class="empty" style="padding:22px"><p class="empty-note">Noch keine Buchungen</p></div></td></tr>`}</tbody></table>
+          </div>
+        </div>`;
+      document.getElementById('apparel-detail-modal').classList.remove('hidden');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  function openApparelItemModal(id) {
+    const i = id ? allApparel.find(x => x.id === id) : null;
+    document.getElementById('apparel-item-modal-title').textContent = i ? 'Artikel bearbeiten' : 'Artikel anlegen';
+    document.getElementById('apparel-item-id').value = i ? i.id : '';
+    const felder = { name: 'name', size: 'size', color: 'color', category: 'category', supplier: 'supplier', 'article-number': 'article_number', 'min-stock': 'min_stock' };
+    for (const [feld, schluessel] of Object.entries(felder))
+      document.getElementById('apparel-item-' + feld).value = i && i[schluessel] != null ? i[schluessel] : '';
+    document.getElementById('apparel-item-initial').value = '';
+    // Beim Bearbeiten aendert sich der Bestand nur ueber Buchungen.
+    document.getElementById('apparel-item-initial-group').style.display = i ? 'none' : 'flex';
+    document.getElementById('apparel-item-modal').classList.remove('hidden');
+    setTimeout(() => document.getElementById('apparel-item-name').focus(), 50);
+  }
+
+  async function saveApparelItem() {
+    const id = document.getElementById('apparel-item-id').value;
+    const wert = feld => document.getElementById('apparel-item-' + feld).value.trim();
+    const body = {
+      name: wert('name'), size: wert('size'), color: wert('color'), category: wert('category'),
+      supplier: wert('supplier'), article_number: wert('article-number'), min_stock: wert('min-stock'),
+    };
+    if (!id) body.initial_quantity = wert('initial') || 0;
+    if (!body.name) { toast('Bezeichnung erforderlich', 'error'); return; }
+    if (!body.size) { toast('Größe erforderlich', 'error'); return; }
+    try {
+      if (id) await api('PUT', '/apparel/items/' + id, body);
+      else await api('POST', '/apparel/items', body);
+      closeModal('apparel-item-modal');
+      await loadApparel();
+      toast(id ? 'Artikel aktualisiert' : 'Artikel angelegt');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  async function archiveApparelItem(id) {
+    const i = allApparel.find(x => x.id === id);
+    if (!i) return;
+    if (!await confirmDialog({ titel: 'Artikel archivieren?', text: `„${artikelName(i)}“ verschwindet aus dem Bestand. Alle Buchungen bleiben erhalten, ausgegebene Teile stehen weiter beim Mitarbeiter, und du kannst den Artikel im Archiv zurückholen.`, aktion: 'Archivieren' })) return;
+    try {
+      await api('DELETE', '/apparel/items/' + id);
+      await loadApparel();
+      toast('Artikel archiviert');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  // ── Buchungsdialog ──
+  // Ein Dialog fuer alle vier Buchungen. Fest steht, was vom Ausgangspunkt her
+  // klar ist (Artikel oder Mitarbeiter), gewaehlt wird der Rest.
+  let kleidungBuchung = null;
+  const BUCHUNG_DIALOG = {
+    ausgabe:    { titel: 'Kleidung ausgeben',  knopf: 'Ausgeben',       notiz: 'Notiz' },
+    rueckgabe:  { titel: 'Kleidung zurücknehmen', knopf: 'Zurücknehmen', notiz: 'Notiz' },
+    zugang:     { titel: 'Zugang buchen',      knopf: 'Buchen',         notiz: 'Beleg / Notiz', platzhalter: 'z.B. Lieferschein 4711' },
+    ausbuchung: { titel: 'Ausbuchen',          knopf: 'Ausbuchen',      notiz: 'Grund *',       platzhalter: 'z.B. beschädigt, verloren, Inventurdifferenz' },
+  };
+
+  function zeige(id, sichtbar) { document.getElementById(id).style.display = sichtbar ? 'flex' : 'none'; }
+
+  // art: ausgabe | rueckgabe | zugang | ausbuchung
+  // opts: itemId und/oder employeeId (fest), zurueck = welche Detailansicht danach
+  async function openApparelMove(art, opts = {}) {
+    const d = BUCHUNG_DIALOG[art];
+    kleidungBuchung = { art, itemId: opts.itemId || null, employeeId: opts.employeeId || null, zurueck: opts.zurueck || null, verbleib: null, gehalten: 0 };
+    ['apparel-detail-modal', 'employee-detail-modal'].forEach(m => document.getElementById(m).classList.add('hidden'));
+
+    document.getElementById('apparel-move-title').textContent = d.titel;
+    document.getElementById('apparel-move-save').textContent = d.knopf;
+    document.getElementById('apparel-move-note-label').textContent = d.notiz;
+    document.getElementById('apparel-move-note').placeholder = d.platzhalter || 'Optional';
+    document.getElementById('apparel-move-note').value = '';
+    document.getElementById('apparel-move-quantity').value = 1;
+    document.querySelectorAll('#apparel-move-verbleib-group .kachel').forEach(k => k.setAttribute('aria-checked', 'false'));
+
+    const mitMitarbeiter = art === 'ausgabe' || art === 'rueckgabe';
+    const artikelFest = !!kleidungBuchung.itemId;
+    const mitarbeiterFest = !!kleidungBuchung.employeeId;
+    zeige('apparel-move-item-fest', artikelFest);
+    zeige('apparel-move-item-wahl', !artikelFest);
+    zeige('apparel-move-employee-fest', mitMitarbeiter && mitarbeiterFest);
+    zeige('apparel-move-employee-wahl', mitMitarbeiter && !mitarbeiterFest);
+    zeige('apparel-move-verbleib-group', art === 'rueckgabe');
+
+    try {
+      // Frisch laden: der Bestand kann sich seit dem letzten Rendern geaendert haben.
+      const artikel = (await api('GET', '/apparel/items')).sort(artikelFolge);
+      kleidungBuchung.artikel = artikel;
+      if (artikelFest) {
+        const i = artikel.find(x => x.id === kleidungBuchung.itemId);
+        document.getElementById('apparel-move-item-name').value = i ? artikelName(i) : '';
+      } else {
+        // Vom Mitarbeiter aus wird nur ausgegeben, also nur Artikel mit Bestand.
+        const frei = artikel.filter(i => i.stock > 0);
+        if (!frei.length) { toast('Keine Kleidung im Lager', 'error'); return nachBuchung(kleidungBuchung.zurueck); }
+        document.getElementById('apparel-move-item-select').innerHTML = '<option value="">— Artikel wählen —</option>' +
+          frei.map(i => `<option value="${i.id}">${esc(artikelName(i))} (${i.stock} im Lager)</option>`).join('');
+      }
+      if (mitMitarbeiter) {
+        const mitarbeiter = await api('GET', '/employees');
+        if (mitarbeiterFest) {
+          const e = mitarbeiter.find(x => x.id === kleidungBuchung.employeeId);
+          document.getElementById('apparel-move-employee-name').value = e ? fullName(e) : (opts.employeeName || '');
+        } else {
+          document.getElementById('apparel-move-employee-select').innerHTML = '<option value="">— Mitarbeiter wählen —</option>' +
+            mitarbeiter.map(e => `<option value="${e.id}">${esc(fullName(e))}${e.department ? ' (' + esc(e.department) + ')' : ''}</option>`).join('');
+        }
+      }
+      if (art === 'rueckgabe') {
+        const { held } = await api('GET', '/employees/' + kleidungBuchung.employeeId + '/apparel');
+        kleidungBuchung.gehalten = held.find(h => h.item_id === kleidungBuchung.itemId)?.quantity || 0;
+      }
+    } catch (e) { toast(e.message, 'error'); kleidungBuchung = null; return; }
+
+    apparelMoveHinweis();
+    document.getElementById('apparel-move-modal').classList.remove('hidden');
+    const erstesFeld = !artikelFest ? 'apparel-move-item-select'
+      : (mitMitarbeiter && !mitarbeiterFest) ? 'apparel-move-employee-select' : 'apparel-move-quantity';
+    setTimeout(() => document.getElementById(erstesFeld).focus(), 50);
+  }
+
+  // Zeigt unter der Menge, wie viel hoechstens geht.
+  function apparelMoveHinweis() {
+    const b = kleidungBuchung;
+    if (!b) return;
+    const itemId = b.itemId || parseInt(document.getElementById('apparel-move-item-select').value);
+    const i = (b.artikel || []).find(x => x.id === itemId);
+    const q = document.getElementById('apparel-move-quantity');
+    let text = '', max = '';
+    if (b.art === 'rueckgabe') { max = b.gehalten; text = `Hat ${b.gehalten} Stück davon.`; }
+    else if (i && (b.art === 'ausgabe' || b.art === 'ausbuchung')) { max = i.stock; text = `${i.stock} Stück im Lager.`; }
+    else if (i) text = `Derzeit ${i.stock} Stück im Lager.`;
+    q.max = max;
+    document.getElementById('apparel-move-quantity-hint').textContent = text;
+  }
+
+  function waehleVerbleib(el) {
+    el.parentElement.querySelectorAll('.kachel').forEach(k => k.setAttribute('aria-checked', String(k === el)));
+    kleidungBuchung.verbleib = el.dataset.art;
+  }
+
+  async function saveApparelMove() {
+    const b = kleidungBuchung;
+    if (!b) return;
+    const itemId = b.itemId || parseInt(document.getElementById('apparel-move-item-select').value);
+    const employeeId = b.employeeId || parseInt(document.getElementById('apparel-move-employee-select').value) || null;
+    const quantity = Number(document.getElementById('apparel-move-quantity').value);
+    const note = document.getElementById('apparel-move-note').value.trim();
+    if (!itemId) { toast('Bitte Artikel wählen', 'error'); return; }
+    if ((b.art === 'ausgabe' || b.art === 'rueckgabe') && !employeeId) { toast('Bitte Mitarbeiter wählen', 'error'); return; }
+    if (!Number.isInteger(quantity) || quantity < 1) { toast('Menge muss eine ganze Zahl ab 1 sein', 'error'); return; }
+    if (b.art === 'rueckgabe' && !b.verbleib) { toast('Bitte wählen: zurück ins Lager oder entsorgt', 'error'); return; }
+    if (b.art === 'ausbuchung' && !note) { toast('Grund erforderlich', 'error'); return; }
+    const kind = b.art === 'rueckgabe' ? b.verbleib : b.art;
+    const zurueck = b.zurueck;
+    try {
+      await api('POST', '/apparel/movements', { item_id: itemId, kind, quantity, employee_id: employeeId, note });
+      closeModal('apparel-move-modal');
+      toast({ ausgabe: 'Kleidung ausgegeben', rueckgabe_lager: 'Zurück im Lager', rueckgabe_entsorgt: 'Rückgabe vermerkt', zugang: 'Zugang gebucht', ausbuchung: 'Ausgebucht' }[kind]);
+      await loadApparel();
+      nachBuchung(zurueck);
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  // Nach der Buchung die Detailansicht wieder oeffnen, aus der sie kam.
+  function nachBuchung(zurueck) {
+    if (!zurueck) return;
+    if (zurueck.art === 'artikel') showApparelDetails(zurueck.id);
+    if (zurueck.art === 'mitarbeiter') showEmployeeDetails(zurueck.id);
+  }
+
   // ─── WIEDERHERSTELLEN ────────────────────────────────────────────────────────
-  const ARCHIV_LADER = { devices: () => loadDevices(), employees: () => loadEmployees(), locations: () => loadLocations() };
-  const ARCHIV_WORT  = { devices: 'Gerät', employees: 'Mitarbeiter', locations: 'Standort' };
+  const ARCHIV_LADER = { devices: () => loadDevices(), employees: () => loadEmployees(), locations: () => loadLocations(), 'apparel/items': () => loadApparel() };
+  const ARCHIV_WORT  = { devices: 'Gerät', employees: 'Mitarbeiter', locations: 'Standort', 'apparel/items': 'Artikel' };
 
   async function restoreEintrag(bereich, id, name) {
     if (!await confirmDialog({
@@ -2297,6 +2852,7 @@
   function closeModal(id) {
     if (id === 'confirm-modal') return closeConfirm(false);
     if (id === 'assign-modal' || id === 'return-modal') detailZurueckZu = null;
+    if (id === 'apparel-move-modal') kleidungBuchung = null;
     document.getElementById(id).classList.add('hidden');
   }
 
@@ -2526,7 +3082,7 @@
   async function init() {
     const authed = await checkAuth();
     if (!authed) return;
-    await Promise.allSettled([loadDevices(), loadEmployees(), loadLocations()]);
+    await Promise.allSettled([loadDevices(), loadEmployees(), loadLocations(), loadApparel()]);
     loadDashboard();
   }
 
