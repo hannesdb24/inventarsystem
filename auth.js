@@ -653,10 +653,15 @@ module.exports = function nutzersteuerung({ app, pool, usePostgres, loadDB, save
     const hash = await bcrypt.hash(kennwort, 12);
     const istMail = login.includes('@');
     if (usePostgres()) {
-      await pool.query('INSERT INTO users (username, email, name, password_hash, role) VALUES ($1, $2, $3, $4, \'admin\')',
+      // findByLogin sucht den Benutzernamen nur bei Konten ohne E-Mail. Hat der
+      // alte Admin inzwischen eine E-Mail, ist sein Name trotzdem vergeben —
+      // dann nichts anlegen statt beim Start am Unique-Index abzustuerzen.
+      const { rowCount } = await pool.query('INSERT INTO users (username, email, name, password_hash, role) VALUES ($1, $2, $3, $4, \'admin\') ON CONFLICT (username) DO NOTHING',
         [istMail ? null : login, istMail ? login : null, 'Admin', hash]);
+      if (!rowCount) return;
     } else {
       const d = loadDB();
+      if (!istMail && d.users.some(u => u.username && u.username.toLowerCase() === login)) return;
       d.users.push({ id: nextId(d, 'u'), username: istMail ? null : login, email: istMail ? login : null, name: 'Admin',
         password_hash: hash, role: 'admin', is_active: true, password_changed_at: null, created_at: new Date().toISOString() });
       saveDB(d);
