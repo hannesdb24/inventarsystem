@@ -154,6 +154,31 @@ async function initDB() {
         booked_by TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
+      -- Sonstige Artikel, z. B. Gin als Geschenk: ein Artikel je Bezeichnung
+      -- und Art. Der Bestand ergibt sich wie bei der Kleidung aus den Buchungen.
+      CREATE TABLE IF NOT EXISTS misc_items (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        variant TEXT,
+        min_stock INTEGER,
+        archived_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      -- Eine Ausgabe geht an einen Mitarbeiter oder an einen Externen
+      -- (recipient_name), ausgegeben von einem Mitarbeiter (issued_by_id).
+      CREATE TABLE IF NOT EXISTS misc_movements (
+        id SERIAL PRIMARY KEY,
+        item_id INTEGER NOT NULL REFERENCES misc_items(id),
+        kind TEXT NOT NULL,
+        quantity INTEGER NOT NULL CHECK (quantity > 0),
+        occurred_on TEXT NOT NULL,
+        issued_by_id INTEGER REFERENCES employees(id),
+        recipient_employee_id INTEGER REFERENCES employees(id),
+        recipient_name TEXT,
+        note TEXT,
+        booked_by TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
     `);
     // Spalten nachrüsten falls DB schon existierte
     await pool.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL');
@@ -215,6 +240,8 @@ function loadDB() {
   if (!db.apparel_items) db.apparel_items = [];
   if (!db.apparel_movements) db.apparel_movements = [];
   if (!db.apparel_receipts) db.apparel_receipts = [];
+  if (!db.misc_items) db.misc_items = [];
+  if (!db.misc_movements) db.misc_movements = [];
   if (!db._seq.u) db._seq.u = 0;
   if (!db._seq.l) db._seq.l = 0;
   return db;
@@ -764,7 +791,7 @@ app.delete('/api/locations/:id', requireAdmin, async (req, res) => {
 
 // ─── WIEDERHERSTELLEN ─────────────────────────────────────────────────────────
 
-const ARCHIVIERBAR = { devices: 'devices', employees: 'employees', locations: 'locations', 'apparel/items': 'apparel_items' };
+const ARCHIVIERBAR = { devices: 'devices', employees: 'employees', locations: 'locations', 'apparel/items': 'apparel_items', 'misc/items': 'misc_items' };
 
 for (const [pfad, tabelle] of Object.entries(ARCHIVIERBAR)) {
   app.put(`/api/${pfad}/:id/restore`, requireAdmin, async (req, res) => {
@@ -1278,6 +1305,236 @@ app.get('/api/employees/:id/apparel', async (req, res) => {
     const movements = [...bew].sort((a, b) => new Date(b.created_at) - new Date(a.created_at) || b.id - a.id)
       .map(m => { const i = artikel(m.item_id); return { ...m, name: i.name, size: i.size, color: i.color }; });
     res.json({ held, movements });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── SONSTIGE ARTIKEL ─────────────────────────────────────────────────────────
+// Mengenware wie Gin oder Gin im Geschenkkarton. Ausgegebenes ist verbraucht
+// und kommt nicht zurueck; deshalb gibt es nur Zugang, Ausgabe und Ausbuchung.
+// Der Bestand wird wie bei der Kleidung aus den Buchungen gerechnet.
+
+// Kalendertag in Deutschland; der Server laeuft in UTC.
+const heuteBerlin = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+
+const SONST_ARTEN = ['zugang', 'ausgabe', 'ausbuchung'];
+const SONST_WIRKUNG = { zugang: 1, ausgabe: -1, ausbuchung: -1 };
+const SONST_AUSGEGEBEN = { ausgabe: 1 };
+
+function sonstFelder(body) {
+  const text = v => (v == null || String(v).trim() === '') ? null : String(v).trim();
+  const min = body.min_stock === '' || body.min_stock == null ? null : parseInt(body.min_stock);
+  return { name: text(body.name), variant: text(body.variant), min_stock: Number.isInteger(min) && min >= 0 ? min : null };
+}
+
+// Buchungen mit Artikel und Namen, neueste zuerst. Filter: item_id oder kind.
+async function sonstBuchungen({ item_id, kind } = {}) {
+  if (usePostgres()) {
+    const bed = [], werte = [];
+    if (item_id) { werte.push(item_id); bed.push(`m.item_id = $${werte.length}`); }
+    if (kind) { werte.push(kind); bed.push(`m.kind = $${werte.length}`); }
+    return (await pool.query(`
+      SELECT m.*, i.name AS item_name, i.variant,
+        v.name AS issued_by_name, r.name AS recipient_employee_name
+      FROM misc_movements m JOIN misc_items i ON i.id = m.item_id
+      LEFT JOIN employees v ON v.id = m.issued_by_id
+      LEFT JOIN employees r ON r.id = m.recipient_employee_id
+      ${bed.length ? 'WHERE ' + bed.join(' AND ') : ''}
+      ORDER BY m.occurred_on DESC, m.created_at DESC, m.id DESC
+    `, werte)).rows;
+  }
+  const db = loadDB();
+  const name = eid => eid ? db.employees.find(e => e.id === eid)?.name || null : null;
+  return db.misc_movements
+    .filter(m => (!item_id || m.item_id === item_id) && (!kind || m.kind === kind))
+    .sort((a, b) => b.occurred_on.localeCompare(a.occurred_on) || new Date(b.created_at) - new Date(a.created_at) || b.id - a.id)
+    .map(m => {
+      const i = db.misc_items.find(x => x.id === m.item_id) || {};
+      return { ...m, item_name: i.name, variant: i.variant, issued_by_name: name(m.issued_by_id), recipient_employee_name: name(m.recipient_employee_id) };
+    });
+}
+
+app.get('/api/misc/items', async (req, res) => {
+  try {
+    if (usePostgres()) {
+      const { rows } = await pool.query(`
+        SELECT i.*, ${summeSql(SONST_WIRKUNG)} AS stock, ${summeSql(SONST_AUSGEGEBEN)} AS issued
+        FROM misc_items i LEFT JOIN misc_movements m ON m.item_id = i.id
+        WHERE i.archived_at IS ${zeigeArchiv(req) ? 'NOT NULL' : 'NULL'}
+        GROUP BY i.id ORDER BY i.name, i.variant NULLS FIRST, i.id
+      `);
+      return res.json(rows);
+    }
+    const db = loadDB();
+    res.json(db.misc_items.filter(i => zeigeArchiv(req) ? i.archived_at : !i.archived_at).map(i => {
+      const bew = db.misc_movements.filter(m => m.item_id === i.id);
+      return { ...i, stock: summeJs(bew, SONST_WIRKUNG), issued: summeJs(bew, SONST_AUSGEGEBEN) };
+    }).sort((a, b) => a.name.localeCompare(b.name) || (a.variant || '').localeCompare(b.variant || '') || a.id - b.id));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/misc/items/:id/details', async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    let item;
+    if (usePostgres()) {
+      item = (await pool.query(`
+        SELECT i.*, ${summeSql(SONST_WIRKUNG)} AS stock, ${summeSql(SONST_AUSGEGEBEN)} AS issued
+        FROM misc_items i LEFT JOIN misc_movements m ON m.item_id = i.id
+        WHERE i.id = $1 GROUP BY i.id
+      `, [id])).rows[0];
+    } else {
+      const db = loadDB();
+      const i = db.misc_items.find(x => x.id === id);
+      const bew = db.misc_movements.filter(m => m.item_id === id);
+      if (i) item = { ...i, stock: summeJs(bew, SONST_WIRKUNG), issued: summeJs(bew, SONST_AUSGEGEBEN) };
+    }
+    if (!item) return res.status(404).json({ error: 'Nicht gefunden' });
+    res.json({ ...item, movements: await sonstBuchungen({ item_id: id }) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Alle Ausgaben ueber alle Artikel: wer hat wann was an wen gegeben.
+app.get('/api/misc/ausgaben', async (req, res) => {
+  try { res.json(await sonstBuchungen({ kind: 'ausgabe' })); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/misc/items', requireAdmin, async (req, res) => {
+  const f = sonstFelder(req.body);
+  if (!f.name) return res.status(400).json({ error: 'Bezeichnung erforderlich' });
+  const anfang = parseInt(req.body.initial_quantity) || 0;
+  if (anfang < 0) return res.status(400).json({ error: 'Anfangsbestand darf nicht negativ sein' });
+  const heute = heuteBerlin();
+  try {
+    if (usePostgres()) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const item = (await client.query(
+          'INSERT INTO misc_items (name, variant, min_stock) VALUES ($1,$2,$3) RETURNING *',
+          [f.name, f.variant, f.min_stock]
+        )).rows[0];
+        if (anfang > 0) await client.query(
+          "INSERT INTO misc_movements (item_id, kind, quantity, occurred_on, note, booked_by) VALUES ($1, 'zugang', $2, $3, 'Anfangsbestand', $4)",
+          [item.id, anfang, heute, req.session.username]
+        );
+        await client.query('COMMIT');
+        return res.status(201).json({ ...item, stock: anfang, issued: 0 });
+      } catch (e) { await client.query('ROLLBACK'); throw e; }
+      finally { client.release(); }
+    }
+    const db = loadDB();
+    const item = { id: nextId(db, 'mi'), ...f, created_at: now() };
+    db.misc_items.push(item);
+    if (anfang > 0) db.misc_movements.push({ id: nextId(db, 'mm'), item_id: item.id, kind: 'zugang', quantity: anfang, occurred_on: heute, note: 'Anfangsbestand', booked_by: req.session.username, created_at: now() });
+    saveDB(db);
+    res.status(201).json({ ...item, stock: anfang, issued: 0 });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/misc/items/:id', requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id);
+  const f = sonstFelder(req.body);
+  if (!f.name) return res.status(400).json({ error: 'Bezeichnung erforderlich' });
+  try {
+    if (usePostgres()) {
+      const { rows } = await pool.query('UPDATE misc_items SET name=$1, variant=$2, min_stock=$3 WHERE id=$4 RETURNING *', [f.name, f.variant, f.min_stock, id]);
+      if (!rows.length) return res.status(404).json({ error: 'Nicht gefunden' });
+      return res.json(rows[0]);
+    }
+    const db = loadDB();
+    const item = db.misc_items.find(i => i.id === id);
+    if (!item) return res.status(404).json({ error: 'Nicht gefunden' });
+    Object.assign(item, f);
+    saveDB(db);
+    res.json(item);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Archivieren erst, wenn nichts mehr im Lager liegt.
+app.delete('/api/misc/items/:id', requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    if (usePostgres()) {
+      const { rows } = await pool.query(`SELECT ${summeSql(SONST_WIRKUNG)} AS stock FROM misc_movements m WHERE m.item_id=$1`, [id]);
+      if (rows[0].stock > 0) return res.status(400).json({ error: `Noch ${rows[0].stock} Stück im Lager – erst ausgeben oder ausbuchen` });
+      await pool.query('UPDATE misc_items SET archived_at = NOW() WHERE id=$1', [id]);
+      return res.json({ success: true });
+    }
+    const db = loadDB();
+    const stock = summeJs(db.misc_movements.filter(m => m.item_id === id), SONST_WIRKUNG);
+    if (stock > 0) return res.status(400).json({ error: `Noch ${stock} Stück im Lager – erst ausgeben oder ausbuchen` });
+    const item = db.misc_items.find(i => i.id === id);
+    if (item) item.archived_at = now();
+    saveDB(db);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Eine Buchung. Ausgeben darf jeder, Zugang und Ausbuchung nur Admins.
+app.post('/api/misc/movements', async (req, res) => {
+  const { kind } = req.body;
+  const item_id = parseInt(req.body.item_id);
+  const quantity = Number(req.body.quantity);
+  const occurred_on = isoDatum(req.body.occurred_on);
+  const text = v => (v == null || String(v).trim() === '') ? null : String(v).trim();
+  const note = text(req.body.note);
+  const ausgabe = kind === 'ausgabe';
+  const issued_by_id = ausgabe ? parseInt(req.body.issued_by_id) || null : null;
+  const recipient_employee_id = ausgabe ? parseInt(req.body.recipient_employee_id) || null : null;
+  const recipient_name = ausgabe && !recipient_employee_id ? text(req.body.recipient_name) : null;
+
+  if (!SONST_ARTEN.includes(kind)) return res.status(400).json({ error: 'Unbekannte Buchungsart' });
+  if (!ausgabe && req.session.userRole !== 'admin') return res.status(403).json({ error: 'Keine Berechtigung' });
+  if (!item_id) return res.status(400).json({ error: 'Artikel erforderlich' });
+  if (!Number.isInteger(quantity) || quantity < 1) return res.status(400).json({ error: 'Menge muss eine ganze Zahl ab 1 sein' });
+  if (!occurred_on) return res.status(400).json({ error: 'Datum erforderlich' });
+  if (occurred_on > heuteBerlin()) return res.status(400).json({ error: 'Datum liegt in der Zukunft' });
+  if (ausgabe && !issued_by_id) return res.status(400).json({ error: 'Ausgegeben von erforderlich' });
+  if (ausgabe && !recipient_employee_id && !recipient_name) return res.status(400).json({ error: 'Empfänger erforderlich' });
+  if (kind === 'ausbuchung' && !note) return res.status(400).json({ error: 'Grund erforderlich' });
+
+  function pruefe(item, stock, mitarbeiter) {
+    if (!item) return 'Artikel nicht gefunden';
+    if (item.archived_at) return 'Artikel ist archiviert';
+    if (ausgabe && !mitarbeiter(issued_by_id)) return 'Ausgebender Mitarbeiter nicht gefunden';
+    if (recipient_employee_id && !mitarbeiter(recipient_employee_id)) return 'Empfänger nicht gefunden';
+    if (kind !== 'zugang' && quantity > stock) return `Nur ${stock} Stück im Lager`;
+    return null;
+  }
+  const buchung = { item_id, kind, quantity, occurred_on, issued_by_id, recipient_employee_id, recipient_name, note, booked_by: req.session.username };
+
+  try {
+    if (usePostgres()) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        // Sperre, damit zwei Ausgaben nicht dasselbe letzte Stueck nehmen.
+        const item = (await client.query('SELECT * FROM misc_items WHERE id=$1 FOR UPDATE', [item_id])).rows[0];
+        const stock = (await client.query(`SELECT ${summeSql(SONST_WIRKUNG)} AS s FROM misc_movements m WHERE m.item_id=$1`, [item_id])).rows[0].s;
+        const ids = [issued_by_id, recipient_employee_id].filter(Boolean);
+        const vorhanden = new Set(ids.length ? (await client.query('SELECT id FROM employees WHERE id = ANY($1)', [ids])).rows.map(r => r.id) : []);
+        const fehler = pruefe(item, stock, eid => vorhanden.has(eid));
+        if (fehler) { await client.query('ROLLBACK'); return res.status(400).json({ error: fehler }); }
+        const spalten = Object.keys(buchung);
+        const { rows } = await client.query(
+          `INSERT INTO misc_movements (${spalten.join(',')}) VALUES (${spalten.map((_, n) => '$' + (n + 1)).join(',')}) RETURNING *`,
+          Object.values(buchung)
+        );
+        await client.query('COMMIT');
+        return res.status(201).json(rows[0]);
+      } catch (e) { await client.query('ROLLBACK'); throw e; }
+      finally { client.release(); }
+    }
+    const db = loadDB();
+    const item = db.misc_items.find(i => i.id === item_id);
+    const stock = summeJs(db.misc_movements.filter(m => m.item_id === item_id), SONST_WIRKUNG);
+    const fehler = pruefe(item, stock, eid => db.employees.some(e => e.id === eid));
+    if (fehler) return res.status(400).json({ error: fehler });
+    const neu = { id: nextId(db, 'mm'), ...buchung, created_at: now() };
+    db.misc_movements.push(neu);
+    saveDB(db);
+    res.status(201).json(neu);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -878,7 +878,8 @@
     <g id="i-archive" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1.5"/><path d="M5 8v10.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V8"/><path d="M10 12h4"/></g>
     <g id="i-restore" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a9 9 0 1 1 1.6 6"/><path d="M3 5v5h5"/></g>
     <g id="i-shirt" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3.5 4 6l-1.5 4.5 3 1.2V20.5h13v-8.8l3-1.2L20 6l-5-2.5a3 3 0 0 1-6 0Z"/></g>
-    <g id="i-key" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 8.7-8.7M16.5 6.5l2.5 2.5M14 9l2 2"/></g>
+    <g id="i-gift" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12"/><path d="M12 8S10.5 3.5 8 4.2c-2 .6-1.2 3.8 4 3.8Zm0 0s1.5-4.5 4-3.8c2 .6 1.2 3.8-4 3.8Z"/></g>
+    <g id="i-key"fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 8.7-8.7M16.5 6.5l2.5 2.5M14 9l2 2"/></g>
     <g id="i-mail" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6 8.5-6"/></g>
     <g id="i-alert"fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16.2h.01"/></g>
   </defs>
@@ -1007,6 +1008,9 @@
       </button>
       <button class="nav-item" data-tab="apparel" onclick="showTab('apparel', this)">
         <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-shirt"/></svg> Arbeitskleidung <span class="nav-count" id="nav-count-apparel"></span>
+      </button>
+      <button class="nav-item" data-tab="misc" onclick="showTab('misc', this)">
+        <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-gift"/></svg> Sonstige Artikel <span class="nav-count" id="nav-count-misc"></span>
       </button>
       <button class="nav-item" data-tab="employees" onclick="showTab('employees', this)">
         <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-users"/></svg> Mitarbeiter <span class="nav-count" id="nav-count-employees"></span>
@@ -1218,6 +1222,67 @@
                 <th class="col-optional zahl">Ausgegeben</th><th class="col-narrow">Status</th><th></th>
               </tr></thead>
               <tbody id="apparel-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SONSTIGE ARTIKEL ──────────────────────────────────────────── -->
+      <div id="tab-misc" class="tab">
+        <div class="page-head">
+          <div>
+            <h1>Sonstige Artikel</h1>
+            <p>Bestand und Ausgabe, z.B. Gin als Geschenk</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-accent admin-only" onclick="openMiscItemModal()">
+              <svg class="icon icon-sm" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg> Artikel anlegen
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="filter-pills" role="tablist" aria-label="Sonstige Artikel filtern">
+              <button class="pill" role="tab" aria-selected="true"  onclick="filterMisc('all', this)">Alle</button>
+              <button class="pill" role="tab" aria-selected="false" onclick="filterMisc('nachbestellen', this)">Nachbestellen</button>
+              <button class="pill" role="tab" aria-selected="false" onclick="filterMisc('archiv', this)">Archiv</button>
+            </div>
+            <div class="card-tools">
+              <span class="search-wrap">
+                <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-search"/></svg>
+                <input type="text" class="search-box" placeholder="Artikel oder Art&hellip;" oninput="searchMisc(this.value)" />
+              </span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Artikel</th><th>Art</th><th class="zahl">Im Lager</th>
+                <th class="col-optional zahl">Ausgegeben</th><th class="col-narrow">Status</th><th></th>
+              </tr></thead>
+              <tbody id="misc-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <div class="card-header">
+            <h2>Ausgaben</h2>
+            <div class="card-tools">
+              <span class="search-wrap">
+                <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-search"/></svg>
+                <input type="text" class="search-box" placeholder="Empf&auml;nger, Artikel&hellip;" oninput="searchMiscAusgaben(this.value)" />
+              </span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Datum</th><th>Artikel</th><th class="zahl">Menge</th><th>An</th>
+                <th class="col-optional">Ausgegeben von</th><th class="col-optional">Notiz</th>
+              </tr></thead>
+              <tbody id="misc-ausgaben-tbody"></tbody>
             </table>
           </div>
         </div>
@@ -1812,6 +1877,117 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="misc-item-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="misc-item-modal-title">Artikel anlegen</h3>
+      <button class="modal-close" onclick="closeModal('misc-item-modal')" aria-label="Schlie&szlig;en"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="misc-item-id" />
+      <div class="form-row">
+        <div class="form-group">
+          <label for="misc-item-name">Bezeichnung *</label>
+          <input id="misc-item-name" type="text" list="misc-names" placeholder="z.B. Gin" />
+        </div>
+        <div class="form-group">
+          <label for="misc-item-variant">Art</label>
+          <input id="misc-item-variant" type="text" placeholder="z.B. im Geschenkkarton" />
+        </div>
+      </div>
+      <p class="hint">Jede Art hat ihren eigenen Bestand: &bdquo;Gin&ldquo; und &bdquo;Gin &middot; im Geschenkkarton&ldquo; sind zwei Artikel.</p>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="misc-item-min-stock">Mindestbestand</label>
+          <input id="misc-item-min-stock" type="number" min="0" step="1" inputmode="numeric" placeholder="kein" />
+          <p class="hint">Darunter hei&szlig;t es &bdquo;Nachbestellen&ldquo;.</p>
+        </div>
+        <div class="form-group" id="misc-item-initial-group">
+          <label for="misc-item-initial">Anfangsbestand</label>
+          <input id="misc-item-initial" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
+          <p class="hint">Wird als Zugang gebucht.</p>
+        </div>
+      </div>
+      <datalist id="misc-names"></datalist>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('misc-item-modal')">Abbrechen</button>
+      <button class="btn btn-primary" onclick="saveMiscItem()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="misc-move-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="misc-move-title">Artikel ausgeben</h3>
+      <button class="modal-close" onclick="closeModal('misc-move-modal')" aria-label="Schlie&szlig;en"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="misc-move-item-name">Artikel</label>
+        <input id="misc-move-item-name" type="text" disabled />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="misc-move-date">Datum *</label>
+          <input id="misc-move-date" type="date" />
+        </div>
+        <div class="form-group">
+          <label for="misc-move-quantity">Menge *</label>
+          <input id="misc-move-quantity" type="number" min="1" step="1" inputmode="numeric" value="1" />
+          <p class="hint" id="misc-move-quantity-hint"></p>
+        </div>
+      </div>
+      <div class="form-group" id="misc-move-issued-by-group">
+        <label for="misc-move-issued-by">Ausgegeben von *</label>
+        <select id="misc-move-issued-by"></select>
+      </div>
+      <div class="form-group" id="misc-move-an-group">
+        <span class="label" id="misc-move-an-label" style="font-size:13px;font-weight:500">An *</span>
+        <div class="kacheln" role="radiogroup" aria-labelledby="misc-move-an-label">
+          <button type="button" class="kachel" role="radio" aria-checked="true" data-an="mitarbeiter" onclick="waehleMiscEmpfaenger(this)">
+            Mitarbeiter<span class="hint">Aus der Mitarbeiterliste</span>
+          </button>
+          <button type="button" class="kachel" role="radio" aria-checked="false" data-an="extern" onclick="waehleMiscEmpfaenger(this)">
+            Extern<span class="hint">Kunde, Partner, Lieferant</span>
+          </button>
+        </div>
+      </div>
+      <div class="form-group" id="misc-move-recipient-employee-group">
+        <label for="misc-move-recipient-employee">Mitarbeiter *</label>
+        <select id="misc-move-recipient-employee"></select>
+      </div>
+      <div class="form-group" id="misc-move-recipient-name-group">
+        <label for="misc-move-recipient-name">Name *</label>
+        <input id="misc-move-recipient-name" type="text" list="misc-recipients" placeholder="z.B. Müller GmbH, Herr Schmidt" />
+        <datalist id="misc-recipients"></datalist>
+      </div>
+      <div class="form-group">
+        <label for="misc-move-note" id="misc-move-note-label">Notiz</label>
+        <input id="misc-move-note" type="text" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('misc-move-modal')">Abbrechen</button>
+      <button class="btn btn-primary" id="misc-move-save" onclick="saveMiscMove()">Ausgeben</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="misc-detail-modal">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-header">
+      <h3 id="misc-detail-title">Artikel</h3>
+      <button class="modal-close" onclick="closeModal('misc-detail-modal')" aria-label="Schlie&szlig;en"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body" id="misc-detail-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('misc-detail-modal')">Schlie&szlig;en</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay hidden" id="apparel-import-modal">
   <div class="modal" style="max-width:960px">
     <div class="modal-header">
@@ -1894,6 +2070,7 @@
     if (name === 'dashboard') loadDashboard();
     if (name === 'devices')   renderDevices();
     if (name === 'apparel')   loadApparel();
+    if (name === 'misc')      loadMisc();
     if (name === 'employees') renderEmployees();
     if (name === 'locations') loadLocations();
     if (name === 'history')   loadHistory();
@@ -1939,6 +2116,7 @@
     if (!employeeArchiv) document.getElementById('nav-count-employees').textContent = allEmployees.length || '';
     if (!locationArchiv) document.getElementById('nav-count-locations').textContent = allLocations.length || '';
     if (!apparelArchiv)  document.getElementById('nav-count-apparel').textContent   = allApparel.length   || '';
+    if (!miscArchiv)     document.getElementById('nav-count-misc').textContent      = allMisc.length      || '';
   }
 
   // ─── API ─────────────────────────────────────────────────────────────────────
@@ -3156,9 +3334,293 @@
     if (zurueck.art === 'mitarbeiter') showEmployeeDetails(zurueck.id);
   }
 
+  // ─── SONSTIGE ARTIKEL ────────────────────────────────────────────────────────
+  // Mengenware wie Gin. Ausgegebenes ist verbraucht, es gibt keine Rueckgabe.
+  // Eine Ausgabe geht an einen Mitarbeiter oder an einen Externen (Freitext).
+  let allMisc = [], miscFilter = 'all', miscSearch = '', miscArchiv = false;
+  let miscAusgaben = [], miscAusgabenSearch = '';
+
+  const miscName = i => [i.name, i.variant].filter(Boolean).join(' · ');
+  const miscEmpfaenger = m => m.recipient_employee_name || m.recipient_name || '';
+  const MISC_BUCHUNG = { zugang: 'Zugang', ausgabe: 'Ausgabe', ausbuchung: 'Ausbuchung' };
+  // Heutiges Datum als JJJJ-MM-TT in Ortszeit, fuer das Datumsfeld.
+  const heuteIso = () => new Date().toLocaleDateString('sv-SE');
+
+  function miscBadge(i) {
+    if (miscArchiv) return '<span class="badge badge-gray">Archiviert</span>';
+    if (i.stock <= 0) return '<span class="badge badge-red">Leer</span>';
+    if (mussNachbestellt(i)) return '<span class="badge badge-warn">Nachbestellen</span>';
+    return '<span class="badge badge-green">Verfügbar</span>';
+  }
+
+  async function loadMisc() {
+    skelett('misc-tbody', 6, 4);
+    skelett('misc-ausgaben-tbody', 6, 4);
+    try {
+      [allMisc, miscAusgaben] = await Promise.all([
+        api('GET', '/misc/items' + (miscArchiv ? '?archiviert=1' : '')),
+        api('GET', '/misc/ausgaben'),
+      ]);
+    } catch (e) { toast(e.message, 'error'); return; }
+    updateNavCounts();
+    renderMisc();
+    renderMiscAusgaben();
+  }
+
+  async function filterMisc(f, el) {
+    el.parentElement.querySelectorAll('.pill').forEach(p => p.setAttribute('aria-selected', 'false'));
+    el.setAttribute('aria-selected', 'true');
+    const warArchiv = miscArchiv;
+    miscArchiv = (f === 'archiv');
+    miscFilter = miscArchiv ? 'all' : f;
+    if (warArchiv !== miscArchiv) await loadMisc();
+    else renderMisc();
+  }
+
+  function searchMisc(q) { miscSearch = q.trim().toLowerCase(); renderMisc(); }
+  function searchMiscAusgaben(q) { miscAusgabenSearch = q.trim().toLowerCase(); renderMiscAusgaben(); }
+
+  function renderMisc() {
+    let items = allMisc;
+    if (miscFilter === 'nachbestellen') items = items.filter(i => i.stock <= 0 || mussNachbestellt(i));
+    if (miscSearch) {
+      const woerter = miscSearch.split(/\s+/);
+      items = items.filter(i => woerter.every(w => [i.name, i.variant].some(v => (v || '').toLowerCase().includes(w))));
+    }
+    const tbody = document.getElementById('misc-tbody');
+    if (!items.length) {
+      tbody.innerHTML = allMisc.length
+        ? emptyRow(6, 'Keine Treffer', miscFilter === 'nachbestellen' && !miscSearch ? 'Nichts muss nachbestellt werden.' : 'Eine andere Suche führt vielleicht weiter.', 'search')
+        : emptyRow(6, miscArchiv ? 'Archiv ist leer' : 'Noch keine sonstigen Artikel', miscArchiv ? '' : 'Lege den ersten Artikel an, z.B. Gin.', 'gift');
+      return;
+    }
+    tbody.innerHTML = items.map(i => `
+      <tr>
+        <th scope="row" class="zeilenkopf">
+          <button class="zeilenlink" onclick="showMiscDetails(${i.id})">${esc(i.name)}</button>
+        </th>
+        <td><span class="dim">${esc(i.variant) || '–'}</span></td>
+        <td class="zahl">${i.stock}${i.min_stock != null ? `<span class="faint" style="display:block;font-size:12px">min. ${i.min_stock}</span>` : ''}</td>
+        <td class="col-optional zahl">${i.issued || '<span class="faint">0</span>'}</td>
+        <td class="col-narrow">${miscBadge(i)}</td>
+        <td>
+          <div class="row-actions">
+            ${miscArchiv ? `<button class="btn btn-sm btn-ghost admin-only" onclick="restoreEintrag('misc/items', ${i.id}, '${escArg(miscName(i))}')" title="Wiederherstellen">${icon('restore')} <span class="btn-label">Wiederherstellen</span></button>` : `
+            ${i.stock > 0 ? `<button class="btn btn-sm btn-success" onclick="openMiscMove('ausgabe', ${i.id})" title="Ausgeben">${icon('assign')} <span class="btn-label">Ausgeben</span></button>` : ''}
+            <button class="btn btn-icon admin-only" onclick="openMiscMove('zugang', ${i.id})" title="Zugang buchen" aria-label="Zugang buchen">${icon('plus')}</button>
+            <button class="btn btn-icon admin-only" onclick="openMiscItemModal(${i.id})" title="Bearbeiten" aria-label="Bearbeiten">${icon('edit')}</button>
+            <button class="btn btn-icon danger admin-only" onclick="archiveMiscItem(${i.id})" title="Archivieren" aria-label="Archivieren">${icon('archive')}</button>`}
+          </div>
+        </td>
+      </tr>`).join('');
+  }
+
+  function renderMiscAusgaben() {
+    let liste = miscAusgaben;
+    if (miscAusgabenSearch) {
+      const woerter = miscAusgabenSearch.split(/\s+/);
+      liste = liste.filter(m => woerter.every(w =>
+        [m.item_name, m.variant, miscEmpfaenger(m), m.issued_by_name, m.note].some(v => (v || '').toLowerCase().includes(w))));
+    }
+    const tbody = document.getElementById('misc-ausgaben-tbody');
+    if (!liste.length) {
+      tbody.innerHTML = miscAusgaben.length
+        ? emptyRow(6, 'Keine Treffer', 'Eine andere Suche führt vielleicht weiter.', 'search')
+        : emptyRow(6, 'Noch nichts ausgegeben', '', 'gift');
+      return;
+    }
+    tbody.innerHTML = liste.map(m => `
+      <tr>
+        <td><span class="dim num">${formatDate(m.occurred_on)}</span></td>
+        <td>${esc(miscName({ name: m.item_name, variant: m.variant }))}</td>
+        <td class="zahl">${m.quantity}</td>
+        <td><strong>${esc(miscEmpfaenger(m)) || dash()}</strong>${m.recipient_employee_id ? '' : ' <span class="faint">extern</span>'}</td>
+        <td class="col-optional"><span class="dim">${esc(m.issued_by_name) || '–'}</span></td>
+        <td class="col-optional"><span class="dim">${esc(m.note) || '–'}</span></td>
+      </tr>`).join('');
+  }
+
+  async function showMiscDetails(id) {
+    try {
+      const it = await api('GET', '/misc/items/' + id + '/details');
+      document.getElementById('misc-detail-title').textContent = miscName(it);
+      const vorzeichen = { zugang: '+', ausgabe: '−', ausbuchung: '−' };
+      const zeilen = it.movements.map(m => `<tr>
+          <td><span class="dim num">${formatDate(m.occurred_on)}</span></td>
+          <td>${esc(MISC_BUCHUNG[m.kind] || m.kind)}</td>
+          <td class="zahl">${vorzeichen[m.kind] || ''}${m.quantity}</td>
+          <td>${m.kind === 'ausgabe'
+            ? `<strong>${esc(miscEmpfaenger(m))}</strong>${m.recipient_employee_id ? '' : ' <span class="faint">extern</span>'}<span class="faint" style="display:block;font-size:12px">von ${esc(m.issued_by_name) || '–'}</span>`
+            : ''}${m.note ? `<span class="faint" style="display:block;font-size:12px">${esc(m.note)}</span>` : ''}</td>
+          <td class="col-optional"><span class="dim">${esc(m.booked_by) || '–'}</span></td>
+        </tr>`).join('');
+      const archiviert = !!it.archived_at;
+      document.getElementById('misc-detail-body').innerHTML = `
+        <p class="hero-note">
+          ${archiviert ? '<span class="badge badge-gray">Archiviert</span>' : miscBadge(it)}
+          Im Lager <b class="num" style="color:var(--foreground)">${it.stock}</b>
+          · ausgegeben <b class="num" style="color:var(--foreground)">${it.issued}</b>
+          ${it.min_stock != null ? ` · Mindestbestand <span class="num">${it.min_stock}</span>` : ''}
+        </p>
+        ${archiviert ? '' : `<div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${it.stock > 0 ? `<button class="btn btn-sm btn-primary" onclick="openMiscMove('ausgabe', ${it.id}, true)">${icon('assign')} Ausgeben</button>` : ''}
+          <button class="btn btn-sm btn-ghost admin-only" onclick="openMiscMove('zugang', ${it.id}, true)">${icon('plus')} Zugang buchen</button>
+          ${it.stock > 0 ? `<button class="btn btn-sm btn-ghost admin-only" onclick="openMiscMove('ausbuchung', ${it.id}, true)">${icon('trash')} Ausbuchen</button>` : ''}
+        </div>`}
+        <div>
+          <h4>Buchungen (${it.movements.length})</h4>
+          <div class="table-wrap">
+            <table><thead><tr><th>Datum</th><th>Buchung</th><th class="zahl">Menge</th><th>An · Notiz</th><th class="col-optional">Gebucht von</th></tr></thead>
+            <tbody>${zeilen || `<tr><td colspan="5"><div class="empty" style="padding:22px"><p class="empty-note">Noch keine Buchungen</p></div></td></tr>`}</tbody></table>
+          </div>
+        </div>`;
+      document.getElementById('misc-detail-modal').classList.remove('hidden');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  function openMiscItemModal(id) {
+    const i = id ? allMisc.find(x => x.id === id) : null;
+    document.getElementById('misc-item-modal-title').textContent = i ? 'Artikel bearbeiten' : 'Artikel anlegen';
+    document.getElementById('misc-item-id').value = i ? i.id : '';
+    document.getElementById('misc-item-name').value = i ? i.name : '';
+    document.getElementById('misc-item-variant').value = i && i.variant ? i.variant : '';
+    document.getElementById('misc-item-min-stock').value = i && i.min_stock != null ? i.min_stock : '';
+    document.getElementById('misc-item-initial').value = '';
+    document.getElementById('misc-item-initial-group').style.display = i ? 'none' : 'flex';
+    // Vorhandene Bezeichnungen vorschlagen, damit "Gin" nicht als "gin" doppelt entsteht.
+    document.getElementById('misc-names').innerHTML = [...new Set(allMisc.map(x => x.name))]
+      .map(n => `<option value="${esc(n)}"></option>`).join('');
+    document.getElementById('misc-item-modal').classList.remove('hidden');
+    setTimeout(() => document.getElementById('misc-item-name').focus(), 50);
+  }
+
+  async function saveMiscItem() {
+    const id = document.getElementById('misc-item-id').value;
+    const wert = feld => document.getElementById('misc-item-' + feld).value.trim();
+    const body = { name: wert('name'), variant: wert('variant'), min_stock: wert('min-stock') };
+    if (!id) body.initial_quantity = wert('initial') || 0;
+    if (!body.name) { toast('Bezeichnung erforderlich', 'error'); return; }
+    try {
+      if (id) await api('PUT', '/misc/items/' + id, body);
+      else await api('POST', '/misc/items', body);
+      closeModal('misc-item-modal');
+      await loadMisc();
+      toast(id ? 'Artikel aktualisiert' : 'Artikel angelegt');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  async function archiveMiscItem(id) {
+    const i = allMisc.find(x => x.id === id);
+    if (!i) return;
+    if (!await confirmDialog({ titel: 'Artikel archivieren?', text: `„${miscName(i)}“ verschwindet aus dem Bestand. Alle Buchungen bleiben erhalten, und du kannst den Artikel im Archiv zurückholen.`, aktion: 'Archivieren' })) return;
+    try {
+      await api('DELETE', '/misc/items/' + id);
+      await loadMisc();
+      toast('Artikel archiviert');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  // ── Buchungsdialog: Ausgabe, Zugang, Ausbuchung ──
+  let miscBuchung = null;
+  const MISC_DIALOG = {
+    ausgabe:    { titel: 'Artikel ausgeben', knopf: 'Ausgeben',  notiz: 'Notiz',         platzhalter: 'z.B. Anlass: Richtfest' },
+    zugang:     { titel: 'Zugang buchen',    knopf: 'Buchen',    notiz: 'Beleg / Notiz', platzhalter: 'z.B. Lieferschein 4711' },
+    ausbuchung: { titel: 'Ausbuchen',        knopf: 'Ausbuchen', notiz: 'Grund *',       platzhalter: 'z.B. zerbrochen, Inventurdifferenz' },
+  };
+
+  function waehleMiscEmpfaenger(el) {
+    el.parentElement.querySelectorAll('.kachel').forEach(k => k.setAttribute('aria-checked', String(k === el)));
+    miscBuchung.an = el.dataset.an;
+    const intern = miscBuchung.an === 'mitarbeiter';
+    zeige('misc-move-recipient-employee-group', intern);
+    zeige('misc-move-recipient-name-group', !intern);
+    setTimeout(() => document.getElementById(intern ? 'misc-move-recipient-employee' : 'misc-move-recipient-name').focus(), 0);
+  }
+
+  // zurueck: nach der Buchung die Detailansicht des Artikels wieder oeffnen.
+  async function openMiscMove(art, itemId, zurueck = false) {
+    const d = MISC_DIALOG[art];
+    const i = allMisc.find(x => x.id === itemId);
+    if (!i) return;
+    miscBuchung = { art, itemId, zurueck, an: 'mitarbeiter', stock: i.stock };
+    closeModal('misc-detail-modal');
+
+    document.getElementById('misc-move-title').textContent = d.titel;
+    document.getElementById('misc-move-save').textContent = d.knopf;
+    document.getElementById('misc-move-note-label').textContent = d.notiz;
+    document.getElementById('misc-move-note').placeholder = d.platzhalter;
+    document.getElementById('misc-move-note').value = '';
+    document.getElementById('misc-move-item-name').value = miscName(i);
+    document.getElementById('misc-move-quantity').value = 1;
+    const datum = document.getElementById('misc-move-date');
+    datum.value = heuteIso();
+    datum.max = heuteIso();
+    const q = document.getElementById('misc-move-quantity');
+    q.max = art === 'zugang' ? '' : i.stock;
+    document.getElementById('misc-move-quantity-hint').textContent = `${i.stock} Stück im Lager.`;
+
+    const ausgabe = art === 'ausgabe';
+    zeige('misc-move-issued-by-group', ausgabe);
+    zeige('misc-move-an-group', ausgabe);
+    zeige('misc-move-recipient-employee-group', ausgabe);
+    zeige('misc-move-recipient-name-group', false);
+    if (ausgabe) {
+      document.querySelectorAll('#misc-move-an-group .kachel').forEach(k => k.setAttribute('aria-checked', String(k.dataset.an === 'mitarbeiter')));
+      document.getElementById('misc-move-recipient-name').value = '';
+      try {
+        const mitarbeiter = (await api('GET', '/employees')).sort((a, b) => fullName(a).localeCompare(fullName(b), 'de'));
+        const optionen = mitarbeiter.map(e => `<option value="${e.id}">${esc(fullName(e))}${e.department ? ' (' + esc(e.department) + ')' : ''}</option>`).join('');
+        document.getElementById('misc-move-issued-by').innerHTML = '<option value="">— Mitarbeiter wählen —</option>' + optionen;
+        document.getElementById('misc-move-recipient-employee').innerHTML = '<option value="">— Mitarbeiter wählen —</option>' + optionen;
+        // Wer bucht, gibt meist selbst aus: passenden Mitarbeiter vorwaehlen.
+        const ich = currentUser && mitarbeiter.find(e =>
+          (currentUser.email && e.email && e.email.toLowerCase() === currentUser.email.toLowerCase()) ||
+          (currentUser.name && fullName(e).toLowerCase() === currentUser.name.toLowerCase()));
+        if (ich) document.getElementById('misc-move-issued-by').value = ich.id;
+      } catch (e) { toast(e.message, 'error'); miscBuchung = null; return; }
+      // Bisherige externe Empfaenger vorschlagen.
+      document.getElementById('misc-recipients').innerHTML = [...new Set(miscAusgaben.filter(m => m.recipient_name).map(m => m.recipient_name))]
+        .map(n => `<option value="${esc(n)}"></option>`).join('');
+    }
+
+    document.getElementById('misc-move-modal').classList.remove('hidden');
+    setTimeout(() => document.getElementById('misc-move-quantity').focus(), 50);
+  }
+
+  async function saveMiscMove() {
+    const b = miscBuchung;
+    if (!b) return;
+    const quantity = Number(document.getElementById('misc-move-quantity').value);
+    const occurred_on = document.getElementById('misc-move-date').value;
+    const note = document.getElementById('misc-move-note').value.trim();
+    const body = { item_id: b.itemId, kind: b.art, quantity, occurred_on, note };
+    if (!Number.isInteger(quantity) || quantity < 1) { toast('Menge muss eine ganze Zahl ab 1 sein', 'error'); return; }
+    if (b.art !== 'zugang' && quantity > b.stock) { toast(`Nur ${b.stock} Stück im Lager`, 'error'); return; }
+    if (!occurred_on) { toast('Datum erforderlich', 'error'); return; }
+    if (b.art === 'ausgabe') {
+      body.issued_by_id = parseInt(document.getElementById('misc-move-issued-by').value) || null;
+      if (!body.issued_by_id) { toast('Bitte wählen, wer ausgegeben hat', 'error'); return; }
+      if (b.an === 'mitarbeiter') {
+        body.recipient_employee_id = parseInt(document.getElementById('misc-move-recipient-employee').value) || null;
+        if (!body.recipient_employee_id) { toast('Bitte Empfänger wählen', 'error'); return; }
+      } else {
+        body.recipient_name = document.getElementById('misc-move-recipient-name').value.trim();
+        if (!body.recipient_name) { toast('Bitte Empfänger eintragen', 'error'); return; }
+      }
+    }
+    if (b.art === 'ausbuchung' && !note) { toast('Grund erforderlich', 'error'); return; }
+    try {
+      await api('POST', '/misc/movements', body);
+      closeModal('misc-move-modal');
+      toast({ ausgabe: 'Ausgabe gebucht', zugang: 'Zugang gebucht', ausbuchung: 'Ausgebucht' }[b.art]);
+      await loadMisc();
+      if (b.zurueck) showMiscDetails(b.itemId);
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
   // ─── WIEDERHERSTELLEN ────────────────────────────────────────────────────────
-  const ARCHIV_LADER = { devices: () => loadDevices(), employees: () => loadEmployees(), locations: () => loadLocations(), 'apparel/items': () => loadApparel() };
-  const ARCHIV_WORT  = { devices: 'Gerät', employees: 'Mitarbeiter', locations: 'Standort', 'apparel/items': 'Artikel' };
+  const ARCHIV_LADER = { devices: () => loadDevices(), employees: () => loadEmployees(), locations: () => loadLocations(), 'apparel/items': () => loadApparel(), 'misc/items': () => loadMisc() };
+  const ARCHIV_WORT  = { devices: 'Gerät', employees: 'Mitarbeiter', locations: 'Standort', 'apparel/items': 'Artikel', 'misc/items': 'Artikel' };
 
   async function restoreEintrag(bereich, id, name) {
     if (!await confirmDialog({

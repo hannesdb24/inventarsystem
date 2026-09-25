@@ -30,6 +30,7 @@ Ein internes Web-Inventarsystem für ein mittelständisches Unternehmen (~20–1
 - `employees` – Mitarbeiter des Unternehmens (Inventarempfänger)
 - `devices` – Geräte mit Status (verfügbar / vergeben / defekt)
 - `assignments` – Zuweisungen Gerät ↔ Mitarbeiter mit Verlauf
+- `misc_items` / `misc_movements` – Sonstige Artikel (z. B. Gin, Gin im Geschenkkarton): je Bezeichnung + Art ein Artikel; Bestand wird aus den Buchungen (Zugang, Ausgabe, Ausbuchung) gerechnet. Eine Ausgabe hat Datum, „ausgegeben von“ (Mitarbeiter) und Empfänger (Mitarbeiter oder Freitext für Externe); keine Rückgabe
 
 ## API-Endpunkte
 - `GET/POST /api/employees` – Mitarbeiter
@@ -39,6 +40,8 @@ Ein internes Web-Inventarsystem für ein mittelständisches Unternehmen (~20–1
 - `GET/POST /api/assignments` – Zuweisungen
 - `PUT /api/assignments/:id/return` – Rückgabe
 - `GET /api/stats` – Dashboard-Kennzahlen
+- `GET/POST /api/misc/items`, `PUT/DELETE /api/misc/items/:id`, `GET /api/misc/items/:id/details` – Sonstige Artikel (Anlegen/Ändern/Archivieren nur Admin)
+- `POST /api/misc/movements` – Buchung (Ausgabe: alle; Zugang/Ausbuchung: Admin), `GET /api/misc/ausgaben` – alle Ausgaben
 - `POST /api/auth/login|logout`, `GET /api/auth/me`, `PATCH /api/profile/password`
 - `POST /api/passwort-vergessen`, `GET/POST /api/einrichten/:token` (öffentlich)
 - `GET/POST /api/users`, `PUT /api/users/:id`, `POST /api/users/:id/einladung|passwort-link` (Admin; kein Löschen, nur Deaktivieren)
