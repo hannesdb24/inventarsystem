@@ -2602,6 +2602,15 @@
       </tr>`).join('');
   }
 
+  // Geraet aus der Mitarbeiter-Ansicht oeffnen; beim Schliessen geht es
+  // zurueck zum Mitarbeiter statt ins Leere.
+  let geraetZurueckZuMitarbeiter = null;
+  async function geraetAusMitarbeiter(deviceId, employeeId) {
+    closeModal('employee-detail-modal');
+    await showDeviceDetails(deviceId);
+    geraetZurueckZuMitarbeiter = employeeId;
+  }
+
   async function showEmployeeDetails(id) {
     try {
       const [emp, kleidung] = await Promise.all([
@@ -2630,7 +2639,7 @@
         </tr>`).join('');
       const geraeteRows = emp.devices.length
         ? emp.devices.map(d => `<tr>
-            <td><strong>${esc(d.name)}</strong>${d.serial_number ? ` <span class="faint">${esc(d.serial_number)}</span>` : ''}</td>
+            <td><button class="zeilenlink" onclick="geraetAusMitarbeiter(${d.id}, ${emp.id})">${esc(d.name)}</button>${d.serial_number ? ` <span class="faint">${esc(d.serial_number)}</span>` : ''}</td>
             <td><span class="dim num">${esc(d.inventory_number) || '–'}</span></td>
             <td><span class="dim">${formatDate(d.assigned_at)}</span></td>
             <td><div class="row-actions">
@@ -2640,7 +2649,7 @@
         : `<tr><td colspan="4"><div class="empty" style="padding:22px"><p class="empty-note">Kein Gerät zugewiesen</p></div></td></tr>`;
       const verlaufRows = emp.history.length
         ? emp.history.map(h => `<tr>
-            <td><strong>${esc(h.name)}</strong>${h.serial_number ? ` <span class="faint">${esc(h.serial_number)}</span>` : ''}</td>
+            <td>${h.id ? `<button class="zeilenlink" onclick="geraetAusMitarbeiter(${h.id}, ${emp.id})">${esc(h.name)}</button>` : `<strong>${esc(h.name)}</strong>`}${h.serial_number ? ` <span class="faint">${esc(h.serial_number)}</span>` : ''}</td>
             <td><span class="dim">${formatDate(h.assigned_at)}</span></td>
             <td><span class="dim">${formatDate(h.returned_at)}</span></td>
           </tr>`).join('')
@@ -3930,6 +3939,11 @@
     if (id === 'assign-modal' || id === 'return-modal') detailZurueckZu = null;
     if (id === 'apparel-move-modal') kleidungBuchung = null;
     document.getElementById(id).classList.add('hidden');
+    if (id === 'device-detail-modal' && geraetZurueckZuMitarbeiter) {
+      const eid = geraetZurueckZuMitarbeiter;
+      geraetZurueckZuMitarbeiter = null;
+      showEmployeeDetails(eid);
+    }
   }
 
   document.querySelectorAll('.modal-overlay').forEach(el => {

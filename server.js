@@ -303,7 +303,7 @@ app.get('/api/employees/:id/details', async (req, res) => {
         ORDER BY d.name
       `, [id])).rows;
       const history = (await pool.query(`
-        SELECT d.name, d.serial_number, d.inventory_number, a.assigned_at, a.returned_at
+        SELECT d.id, d.name, d.serial_number, d.inventory_number, a.assigned_at, a.returned_at
         FROM assignments a JOIN devices d ON d.id = a.device_id
         WHERE a.employee_id = $1 AND a.returned_at IS NOT NULL
         ORDER BY a.returned_at DESC
@@ -322,7 +322,7 @@ app.get('/api/employees/:id/details', async (req, res) => {
       .sort((x, y) => new Date(y.returned_at) - new Date(x.returned_at))
       .map(a => {
         const d = geraet(a);
-        return { name: d.name, serial_number: d.serial_number, inventory_number: d.inventory_number, assigned_at: a.assigned_at, returned_at: a.returned_at };
+        return { id: d.id, name: d.name, serial_number: d.serial_number, inventory_number: d.inventory_number, assigned_at: a.assigned_at, returned_at: a.returned_at };
       });
     res.json({ ...emp, location_name: db.locations.find(l => l.id === emp.location_id)?.name || null, devices, history });
   } catch (e) { res.status(500).json({ error: e.message }); }
