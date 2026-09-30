@@ -304,6 +304,25 @@
       display: flex; flex-direction: column;
     }
     main { flex: 1; width: 100%; max-width: 1152px; padding: 36px 36px 64px; }
+    /* Die Geraeteliste hat elf Spalten und braucht die Breite wirklich (DESIGN.md:
+       Seiten, die die Breite brauchen, laufen breiter) - sonst schiebt sich die
+       stehende Aktionsspalte ueber Kaufdatum und Preis. */
+    main:has(#tab-devices.active) { max-width: 1680px; }
+    /* Unter 1700 px reicht auch das nicht fuer elf Spalten: Zellen enger setzen und
+       die Zeilenknoepfe nur als Symbol zeigen (der Titel bleibt als Tooltip). */
+    @media (max-width: 1700px) {
+      #tab-devices th, #tab-devices td { padding-left: 9px; padding-right: 9px; }
+      #tab-devices .row-actions .btn-label { display: none; }
+      #tab-devices .row-actions .btn-sm { padding: 6px 8px; }
+      main:has(#tab-devices.active) { padding-left: 24px; padding-right: 24px; }
+    }
+    /* Auf Laptop-Breite wandert der Typ als zweite Zeile unter den Namen - die
+       Typ-Kacheln darueber zeigen ihn ohnehin, und das Kaufdatum bleibt sichtbar. */
+    #tab-devices th.zeilenkopf .typ-unter { display: none; }
+    @media (max-width: 1500px) and (min-width: 901px) {
+      #tab-devices .col-typ { display: none; }
+      #tab-devices th.zeilenkopf .typ-unter { display: block; }
+    }
 
     .tab { display: none; }
     .tab.active { display: block; animation: fade-up .36s var(--ease-fluid) both; }
@@ -1171,7 +1190,7 @@
           <div class="table-wrap">
             <table>
               <thead><tr>
-                <th>Inv.-Nr.</th><th>Name</th><th class="col-optional">Typ</th>
+                <th>Inv.-Nr.</th><th>Name</th><th class="col-optional col-typ">Typ</th>
                 <th class="col-optional">Seriennummer</th><th class="col-handy">Handynummer</th><th>Status</th><th class="col-narrow">Zugewiesen an</th>
                 <th class="col-optional">Standort</th><th class="col-optional">Kaufdatum</th>
                 <th class="col-optional zahl">Preis</th><th></th>
@@ -2499,9 +2518,9 @@
       <tr>
         <td>${d.inventory_number ? `<span class="inv-no">${esc(d.inventory_number)}</span>` : dash()}</td>
         <th scope="row" class="zeilenkopf">
-          <button class="zeilenlink" onclick="showDeviceDetails(${d.id})">${esc(d.name)}</button>
+          <button class="zeilenlink" onclick="showDeviceDetails(${d.id})">${esc(d.name)}</button>${d.type ? `<span class="faint typ-unter">${esc(d.type)}</span>` : ''}
         </th>
-        <td class="col-optional"><span class="dim">${esc(d.type) || '–'}</span></td>
+        <td class="col-optional col-typ"><span class="dim">${esc(d.type) || '–'}</span></td>
         <td class="col-optional">${d.serial_number ? `<span class="serial">${esc(d.serial_number)}</span>` : dash()}</td>
         <td class="col-handy">${d.phone_number ? `<a class="serial" style="white-space:nowrap" href="tel:${esc(nurZiffern(d.phone_number))}">${esc(d.phone_number)}</a>` : dash()}</td>
         <td>${statusBadge(d.status)}</td>
@@ -2511,8 +2530,8 @@
         <td class="col-optional">${d.location_name
           ? `<span class="dim">${esc(d.location_name)}</span>${d.storage_note ? `<span class="faint" style="display:block">${esc(d.storage_note)}</span>` : ''}`
           : dash()}</td>
-        <td class="col-optional"><span class="dim">${formatDate(d.purchase_date)}</span></td>
-        <td class="col-optional zahl">${formatPrice(d.purchase_price)}</td>
+        <td class="col-optional" style="white-space:nowrap"><span class="dim">${formatDate(d.purchase_date)}</span></td>
+        <td class="col-optional zahl" style="white-space:nowrap">${formatPrice(d.purchase_price)}</td>
         <td>
           <div class="row-actions">
             ${deviceArchiv ? `<button class="btn btn-sm btn-ghost admin-only" onclick="restoreEintrag('devices', ${d.id}, '${escArg(d.name)}')" title="Wiederherstellen">${icon('restore')} <span class="btn-label">Wiederherstellen</span></button>` : `
