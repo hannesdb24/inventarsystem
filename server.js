@@ -190,6 +190,8 @@ async function initDB() {
     await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS inventory_number TEXT UNIQUE');
     // Aufbewahrungsort eines zurueckgenommenen Geraets, z. B. "Safe Nadine".
     await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS storage_note TEXT');
+    // Rufnummer eines Handys bzw. einer SIM-Karte; bei allen anderen Geraeten leer.
+    await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS phone_number TEXT');
     // Archivieren statt Loeschen (design/DESIGN.md). Ohne DEFAULT, damit
     // bestehende Zeilen NULL bleiben und weiterhin in den Listen erscheinen.
     await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ');
@@ -296,7 +298,7 @@ app.get('/api/employees/:id/details', async (req, res) => {
       `, [id])).rows[0];
       if (!emp) return res.status(404).json({ error: 'Nicht gefunden' });
       const devices = (await pool.query(`
-        SELECT d.id, d.name, d.type, d.serial_number, d.inventory_number, d.status,
+        SELECT d.id, d.name, d.type, d.serial_number, d.inventory_number, d.phone_number, d.status,
           a.id AS assignment_id, a.assigned_at
         FROM assignments a JOIN devices d ON d.id = a.device_id
         WHERE a.employee_id = $1 AND a.returned_at IS NULL
@@ -316,7 +318,7 @@ app.get('/api/employees/:id/details', async (req, res) => {
     const geraet = (a) => db.devices.find(d => d.id === a.device_id) || {};
     const devices = db.assignments.filter(a => a.employee_id === id && !a.returned_at).map(a => {
       const d = geraet(a);
-      return { id: d.id, name: d.name, type: d.type, serial_number: d.serial_number, inventory_number: d.inventory_number, status: d.status, assignment_id: a.id, assigned_at: a.assigned_at };
+      return { id: d.id, name: d.name, type: d.type, serial_number: d.serial_number, inventory_number: d.inventory_number, phone_number: d.phone_number || null, status: d.status, assignment_id: a.id, assigned_at: a.assigned_at };
     });
     const history = db.assignments.filter(a => a.employee_id === id && a.returned_at)
       .sort((x, y) => new Date(y.returned_at) - new Date(x.returned_at))
@@ -495,14 +497,14 @@ app.get('/api/devices/:id/details', async (req, res) => {
 });
 
 app.post('/api/devices', requireAdmin, async (req, res) => {
-  const { name, type, serial_number, purchase_date, purchase_price, notes, location_id, inventory_number } = req.body;
+  const { name, type, serial_number, purchase_date, purchase_price, notes, location_id, inventory_number, phone_number } = req.body;
   if (!name) return res.status(400).json({ error: 'Name erforderlich' });
   try {
     const invNr = inventory_number?.trim() || await generateInventoryNumber();
     if (usePostgres()) {
       const { rows } = await pool.query(
-        'INSERT INTO devices (name, type, serial_number, purchase_date, purchase_price, notes, location_id, inventory_number) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
-        [name, type || null, serial_number || null, purchase_date || null, purchase_price || null, notes || null, location_id || null, invNr]
+        'INSERT INTO devices (name, type, serial_number, purchase_date, purchase_price, notes, location_id, inventory_number, phone_number) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
+        [name, type || null, serial_number || null, purchase_date || null, purchase_price || null, notes || null, location_id || null, invNr, phone_number?.trim() || null]
       );
       const loc = location_id ? (await pool.query('SELECT name FROM locations WHERE id=$1', [location_id])).rows[0] : null;
       return res.status(201).json({ ...rows[0], location_name: loc?.name || null, assigned_to_name: null, assigned_to_id: null, assigned_at: null, assignment_id: null });
@@ -512,7 +514,7 @@ app.post('/api/devices', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Seriennummer bereits vorhanden' });
     if (db.devices.some(d => d.inventory_number === invNr))
       return res.status(400).json({ error: 'Inventarnummer bereits vorhanden' });
-    const device = { id: nextId(db, 'd'), name, type: type || null, serial_number: serial_number || null, purchase_date: purchase_date || null, purchase_price: purchase_price ? parseFloat(purchase_price) : null, notes: notes || null, location_id: location_id || null, inventory_number: invNr, status: 'verfügbar', created_at: now() };
+    const device = { id: nextId(db, 'd'), name, type: type || null, serial_number: serial_number || null, purchase_date: purchase_date || null, purchase_price: purchase_price ? parseFloat(purchase_price) : null, notes: notes || null, location_id: location_id || null, inventory_number: invNr, phone_number: phone_number?.trim() || null, status: 'verfügbar', created_at: now() };
     db.devices.push(device);
     saveDB(db);
     res.status(201).json({ ...device, location_name: db.locations.find(l => l.id === location_id)?.name || null, assigned_to_name: null, assigned_to_id: null, assigned_at: null, assignment_id: null });
@@ -524,12 +526,12 @@ app.post('/api/devices', requireAdmin, async (req, res) => {
 
 app.put('/api/devices/:id', requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id);
-  const { name, type, serial_number, purchase_date, purchase_price, notes, status, location_id, inventory_number, storage_note } = req.body;
+  const { name, type, serial_number, purchase_date, purchase_price, notes, status, location_id, inventory_number, storage_note, phone_number } = req.body;
   try {
     if (usePostgres()) {
       const { rows } = await pool.query(
-        'UPDATE devices SET name=$1, type=$2, serial_number=$3, purchase_date=$4, purchase_price=$5, notes=$6, status=$7, location_id=$8, inventory_number=$9, storage_note=$10 WHERE id=$11 RETURNING *',
-        [name, type || null, serial_number || null, purchase_date || null, purchase_price || null, notes || null, status || 'verfügbar', location_id || null, inventory_number || null, storage_note || null, id]
+        'UPDATE devices SET name=$1, type=$2, serial_number=$3, purchase_date=$4, purchase_price=$5, notes=$6, status=$7, location_id=$8, inventory_number=$9, storage_note=$10, phone_number=$11 WHERE id=$12 RETURNING *',
+        [name, type || null, serial_number || null, purchase_date || null, purchase_price || null, notes || null, status || 'verfügbar', location_id || null, inventory_number || null, storage_note || null, phone_number?.trim() || null, id]
       );
       if (!rows.length) return res.status(404).json({ error: 'Nicht gefunden' });
       const a = (await pool.query('SELECT a.*, e.name AS employee_name FROM assignments a JOIN employees e ON e.id=a.employee_id WHERE a.device_id=$1 AND a.returned_at IS NULL', [id])).rows[0];
@@ -543,7 +545,7 @@ app.put('/api/devices/:id', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Seriennummer bereits vorhanden' });
     if (inventory_number && db.devices.some(d => d.inventory_number === inventory_number && d.id !== id))
       return res.status(400).json({ error: 'Inventarnummer bereits vorhanden' });
-    db.devices[idx] = { ...db.devices[idx], name, type: type || null, serial_number: serial_number || null, purchase_date: purchase_date || null, purchase_price: purchase_price ? parseFloat(purchase_price) : null, notes: notes || null, status: status || 'verfügbar', location_id: location_id || null, inventory_number: inventory_number || null, storage_note: storage_note || null };
+    db.devices[idx] = { ...db.devices[idx], name, type: type || null, serial_number: serial_number || null, purchase_date: purchase_date || null, purchase_price: purchase_price ? parseFloat(purchase_price) : null, notes: notes || null, status: status || 'verfügbar', location_id: location_id || null, inventory_number: inventory_number || null, storage_note: storage_note || null, phone_number: phone_number?.trim() || null };
     saveDB(db);
     const a = db.assignments.find(x => x.device_id === id && !x.returned_at);
     const e = a ? db.employees.find(x => x.id === a.employee_id) : null;
@@ -1580,10 +1582,11 @@ app.post('/api/devices/import', requireAdmin, async (req, res) => {
       const pd = r.kaufdatum || r.purchase_date || null;
       const pp = r.kaufpreis || r.purchase_price || null;
       const notes = r.notizen || r.notes || null;
+      const phone = r.handynummer || r.rufnummer || r.mobilnummer || r.phone_number || null;
       try {
         await pool.query(
-          'INSERT INTO devices (name, type, serial_number, purchase_date, purchase_price, notes) VALUES ($1,$2,$3,$4,$5,$6)',
-          [name, type || null, serial || null, pd || null, pp ? parseFloat(pp) : null, notes || null]
+          'INSERT INTO devices (name, type, serial_number, purchase_date, purchase_price, notes, phone_number) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+          [name, type || null, serial || null, pd || null, pp ? parseFloat(pp) : null, notes || null, phone ? String(phone).trim() : null]
         );
         imported++;
       } catch (e) {
@@ -1600,7 +1603,7 @@ app.post('/api/devices/import', requireAdmin, async (req, res) => {
       if (serial && db.devices.some(d => d.serial_number === serial)) {
         skipped++; errors.push(`Zeile ${i + 2} („${name}"): Seriennummer bereits vorhanden`); continue;
       }
-      db.devices.push({ id: nextId(db, 'd'), name, type: r.typ || r.type || null, serial_number: serial, purchase_date: r.kaufdatum || r.purchase_date || null, purchase_price: (r.kaufpreis || r.purchase_price) ? parseFloat(r.kaufpreis || r.purchase_price) : null, notes: r.notizen || r.notes || null, status: 'verfügbar', created_at: now() });
+      db.devices.push({ id: nextId(db, 'd'), name, type: r.typ || r.type || null, serial_number: serial, purchase_date: r.kaufdatum || r.purchase_date || null, purchase_price: (r.kaufpreis || r.purchase_price) ? parseFloat(r.kaufpreis || r.purchase_price) : null, notes: r.notizen || r.notes || null, phone_number: (r.handynummer || r.rufnummer || r.mobilnummer || r.phone_number || '').trim() || null, status: 'verfügbar', created_at: now() });
       imported++;
     }
     saveDB(db);

@@ -490,6 +490,9 @@
 
     .inv-no { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; font-weight: 500; color: var(--accent-strong); white-space: nowrap; }
     .serial { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; color: var(--muted-foreground); }
+    a.serial { text-decoration: none; }
+    a.serial:hover { color: var(--foreground); text-decoration: underline; }
+    table.ohne-handy .col-handy { display: none; }
     td a { color: var(--accent-strong); text-decoration: none; }
     td a:hover { text-decoration: underline; }
 
@@ -1146,6 +1149,9 @@
           </div>
         </div>
 
+        <div class="sorten" id="devices-sorten" role="radiogroup" aria-label="Nach Ger&auml;tetyp filtern"></div>
+        <div class="filter-pills" id="devices-standorte" role="tablist" aria-label="Nach Standort filtern" style="margin-bottom:16px"></div>
+
         <div class="card">
           <div class="card-header">
             <div class="filter-pills" role="tablist" aria-label="Ger&auml;te nach Status filtern">
@@ -1158,7 +1164,7 @@
             <div class="card-tools">
               <span class="search-wrap">
                 <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-search"/></svg>
-                <input type="text" class="search-box" placeholder="Name, Inv.-Nr., Seriennummer&hellip;" oninput="searchDevices(this.value)" />
+                <input type="text" class="search-box" placeholder="Name, Inv.-Nr., Seriennummer, Handynummer&hellip;" oninput="searchDevices(this.value)" />
               </span>
             </div>
           </div>
@@ -1166,7 +1172,7 @@
             <table>
               <thead><tr>
                 <th>Inv.-Nr.</th><th>Name</th><th class="col-optional">Typ</th>
-                <th class="col-optional">Seriennummer</th><th>Status</th><th class="col-narrow">Zugewiesen an</th>
+                <th class="col-optional">Seriennummer</th><th class="col-handy">Handynummer</th><th>Status</th><th class="col-narrow">Zugewiesen an</th>
                 <th class="col-optional">Standort</th><th class="col-optional">Kaufdatum</th>
                 <th class="col-optional zahl">Preis</th><th></th>
               </tr></thead>
@@ -1467,6 +1473,11 @@
           <label for="device-serial">Seriennummer</label>
           <input id="device-serial" type="text" placeholder="z.B. C02XY1234ABC" />
         </div>
+      </div>
+      <div class="form-group">
+        <label for="device-phone">Handynummer</label>
+        <input id="device-phone" type="tel" inputmode="tel" autocomplete="off" placeholder="z.B. 0171 1234567" />
+        <p class="hint">Nur bei Handys und SIM-Karten: die Rufnummer, die zum Ger&auml;t geh&ouml;rt.</p>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -2381,7 +2392,7 @@
 
   // ─── GERÄTE ──────────────────────────────────────────────────────────────────
   async function loadDevices() {
-    skelett('devices-tbody', 10, 6);
+    skelett('devices-tbody', 11, 6);
     allDevices = await api('GET', '/devices' + (deviceArchiv ? '?archiviert=1' : ''));
     updateNavCounts();
     renderDevices();
@@ -2399,22 +2410,89 @@
 
   function searchDevices(q) { deviceSearch = q.toLowerCase(); renderDevices(); }
 
+  // Typ-Kacheln ueber der Geraeteliste, gebaut wie die Kategorie-Kacheln der
+  // Arbeitskleidung: grosse Zahl = Geraete dieses Typs, darunter frei/defekt.
+  const OHNE_TYP = 'Ohne Typ';
+  let deviceTyp = null;
+  const typVon = d => (d.type || '').trim() || OHNE_TYP;
+
+  function renderDeviceSorten() {
+    const gruppen = new Map();
+    for (const d of allDevices) {
+      const g = gruppen.get(typVon(d)) || { stueck: 0, frei: 0, defekt: 0 };
+      g.stueck++; if (d.status === 'verfügbar') g.frei++; if (d.status === 'defekt') g.defekt++;
+      gruppen.set(typVon(d), g);
+    }
+    // Groesste Gruppe zuerst, "Ohne Typ" immer hinten.
+    const namen = [...gruppen.keys()].sort((a, b) =>
+      (a === OHNE_TYP) - (b === OHNE_TYP) || gruppen.get(b).stueck - gruppen.get(a).stueck || a.localeCompare(b, 'de'));
+    if (deviceTyp && !gruppen.has(deviceTyp)) deviceTyp = null;
+    const kachel = (wert, titel, g) => `
+      <button type="button" class="kachel" role="radio" aria-checked="${deviceTyp === wert}"
+        onclick="waehleDeviceTyp(${wert === null ? 'null' : `'${escArg(wert)}'`})">
+        <span>${esc(titel)}</span>
+        <span class="sorte-zahl num">${g.stueck}</span>
+        <span class="hint">${g.frei} frei${g.defekt ? ` · ${g.defekt} defekt` : ''}</span>
+      </button>`;
+    const alle = { stueck: allDevices.length, frei: allDevices.filter(d => d.status === 'verfügbar').length, defekt: allDevices.filter(d => d.status === 'defekt').length };
+    // Bei nur einem Typ sagt die Kachelreihe nichts, was die Liste nicht auch sagt.
+    document.getElementById('devices-sorten').innerHTML = gruppen.size > 1
+      ? kachel(null, 'Alle', alle) + namen.map(k => kachel(k, k, gruppen.get(k))).join('')
+      : '';
+  }
+
+  function waehleDeviceTyp(t) { deviceTyp = t; renderDevices(); }
+
+  // Standort-Reiter unter den Kacheln (wie die Farb-Reiter der Kleidung): nur
+  // Standorte, die es beim gewaehlten Typ gibt; ohne Standort = "Ohne Standort".
+  let deviceStandort = null;
+  const standortVon = d => d.location_name || '';
+
+  function renderDeviceStandorte(devices) {
+    const orte = new Map();
+    for (const d of devices) orte.set(standortVon(d), (orte.get(standortVon(d)) || 0) + 1);
+    // Eine Wahl, die es beim neuen Typ nicht gibt, soll nicht unsichtbar weiterfiltern.
+    if (deviceStandort !== null && (!orte.has(deviceStandort) || orte.size < 2)) deviceStandort = null;
+    const leiste = document.getElementById('devices-standorte');
+    leiste.style.display = orte.size > 1 ? 'flex' : 'none';
+    const schluessel = [...orte.keys()].sort((a, b) => (a === '') - (b === '') || a.localeCompare(b, 'de'));
+    const reiter = (wert, text, n) => `<button class="pill" role="tab" aria-selected="${deviceStandort === wert}"
+      onclick="waehleDeviceStandort(${wert === null ? 'null' : `'${escArg(wert)}'`})">${esc(text)} <span class="num" style="opacity:.7">${n}</span></button>`;
+    leiste.innerHTML = reiter(null, 'Alle Standorte', devices.length) +
+      schluessel.map(k => reiter(k, k || 'Ohne Standort', orte.get(k))).join('');
+  }
+
+  function waehleDeviceStandort(s) { deviceStandort = s; renderDevices(); }
+
+  // Rufnummern ohne Leerzeichen, Schraegstriche und Bindestriche vergleichen:
+  // "0171 123" findet "0171/1234567".
+  const nurZiffern = s => (s || '').replace(/[^0-9+]/g, '');
+
   function renderDevices() {
+    renderDeviceSorten();
     let devices = allDevices;
+    if (deviceTyp) devices = devices.filter(d => typVon(d) === deviceTyp);
+    renderDeviceStandorte(devices);
+    if (deviceStandort !== null) devices = devices.filter(d => standortVon(d) === deviceStandort);
     if (deviceFilter !== 'all') devices = devices.filter(d => d.status === deviceFilter);
+    const suchZiffern = nurZiffern(deviceSearch);
     if (deviceSearch) devices = devices.filter(d =>
       d.name.toLowerCase().includes(deviceSearch) ||
       (d.inventory_number || '').toLowerCase().includes(deviceSearch) ||
       (d.serial_number || '').toLowerCase().includes(deviceSearch) ||
       (d.type || '').toLowerCase().includes(deviceSearch) ||
+      (d.phone_number || '').toLowerCase().includes(deviceSearch) ||
+      (suchZiffern.length >= 3 && nurZiffern(d.phone_number).includes(suchZiffern)) ||
       (d.assigned_to_name || '').toLowerCase().includes(deviceSearch)
     );
 
     const tbody = document.getElementById('devices-tbody');
+    // Die Spalte Handynummer kostet Breite: nur zeigen, wenn in der Auswahl eine Nummer steht.
+    tbody.closest('table').classList.toggle('ohne-handy', !devices.some(d => d.phone_number));
     if (!devices.length) {
       tbody.innerHTML = allDevices.length
-        ? emptyRow(10, 'Keine Treffer', 'Andere Suche oder anderer Filter führt vielleicht weiter.', 'search')
-        : emptyRow(10, 'Noch keine Geräte', 'Lege das erste Gerät an oder importiere eine Liste.', 'device');
+        ? emptyRow(11, 'Keine Treffer', 'Andere Suche oder anderer Filter führt vielleicht weiter.', 'search')
+        : emptyRow(11, 'Noch keine Geräte', 'Lege das erste Gerät an oder importiere eine Liste.', 'device');
       return;
     }
     tbody.innerHTML = devices.map(d => `
@@ -2425,6 +2503,7 @@
         </th>
         <td class="col-optional"><span class="dim">${esc(d.type) || '–'}</span></td>
         <td class="col-optional">${d.serial_number ? `<span class="serial">${esc(d.serial_number)}</span>` : dash()}</td>
+        <td class="col-handy">${d.phone_number ? `<a class="serial" style="white-space:nowrap" href="tel:${esc(nurZiffern(d.phone_number))}">${esc(d.phone_number)}</a>` : dash()}</td>
         <td>${statusBadge(d.status)}</td>
         <td class="col-narrow">${d.assigned_to_name
           ? esc(d.assigned_to_name)
@@ -2463,6 +2542,7 @@
           ${esc(dev.inventory_number) || 'ohne Inv.-Nr.'}${dev.serial_number ? ` · ${esc(dev.serial_number)}` : ''}
           ${dev.type ? ` · ${esc(dev.type)}` : ''}
         </p>
+        ${dev.phone_number ? `<p class="hero-note">Handynummer <a class="serial" href="tel:${esc(nurZiffern(dev.phone_number))}">${esc(dev.phone_number)}</a></p>` : ''}
         <p class="hero-note">
           ${statusBadge(dev.status)}
           ${dev.location_name ? ` ${esc(dev.location_name)}` : ''}${dev.storage_note ? ` · ${esc(dev.storage_note)}` : ''}
@@ -2498,6 +2578,7 @@
     document.getElementById('device-type').value = d ? (d.type || '') : '';
     document.getElementById('device-inventory-number').value = d ? (d.inventory_number || '') : '';
     document.getElementById('device-serial').value = d ? (d.serial_number || '') : '';
+    document.getElementById('device-phone').value = d ? (d.phone_number || '') : '';
     document.getElementById('device-purchase-date').value = d ? (d.purchase_date || '') : '';
     document.getElementById('device-price').value = d ? (d.purchase_price || '') : '';
     document.getElementById('device-notes').value = d ? (d.notes || '') : '';
@@ -2517,6 +2598,7 @@
       type: document.getElementById('device-type').value.trim(),
       inventory_number: document.getElementById('device-inventory-number').value.trim() || null,
       serial_number: document.getElementById('device-serial').value.trim(),
+      phone_number: document.getElementById('device-phone').value.trim() || null,
       purchase_date: document.getElementById('device-purchase-date').value,
       purchase_price: document.getElementById('device-price').value || null,
       notes: document.getElementById('device-notes').value.trim(),
@@ -2639,7 +2721,7 @@
         </tr>`).join('');
       const geraeteRows = emp.devices.length
         ? emp.devices.map(d => `<tr>
-            <td><button class="zeilenlink" onclick="geraetAusMitarbeiter(${d.id}, ${emp.id})">${esc(d.name)}</button>${d.serial_number ? ` <span class="faint">${esc(d.serial_number)}</span>` : ''}</td>
+            <td><button class="zeilenlink" onclick="geraetAusMitarbeiter(${d.id}, ${emp.id})">${esc(d.name)}</button>${d.serial_number ? ` <span class="faint">${esc(d.serial_number)}</span>` : ''}${d.phone_number ? `<span class="faint" style="display:block">Handynummer ${esc(d.phone_number)}</span>` : ''}</td>
             <td><span class="dim num">${esc(d.inventory_number) || '–'}</span></td>
             <td><span class="dim">${formatDate(d.assigned_at)}</span></td>
             <td><div class="row-actions">
@@ -4110,9 +4192,9 @@
 
   // ─── IMPORT ──────────────────────────────────────────────────────────────────
   const XLSX_TEMPLATES = {
-    devices:   [['Name','Typ','Seriennummer','Kaufdatum','Kaufpreis','Notizen'],
-                ['ThinkPad X1','Laptop','SN-001','2024-01-15',1299.00,''],
-                ['Dell U2722D','Monitor','SN-002','',429.00,'']],
+    devices:   [['Name','Typ','Seriennummer','Handynummer','Kaufdatum','Kaufpreis','Notizen'],
+                ['ThinkPad X1','Laptop','SN-001','','2024-01-15',1299.00,''],
+                ['iPhone 15','Handy','SN-002','0171 1234567','',799.00,'']],
     // Spaltennamen passend zum Server, der vorname/nachname erwartet.
     employees: [['Vorname','Nachname','Abteilung','E-Mail','Eintrittsdatum'],
                 ['Max','Mustermann','IT','max@dachbleche24.de','2024-01-15'],

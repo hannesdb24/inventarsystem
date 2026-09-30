@@ -28,7 +28,7 @@ Ein internes Web-Inventarsystem für ein mittelständisches Unternehmen (~20–1
 - `user_tokens` – Einmal-Links (Einladung, Passwort), nur SHA-256-Hash
 - `login_throttle` – Login-Bremse (5 Fehlversuche → 15 Min. Sperre)
 - `employees` – Mitarbeiter des Unternehmens (Inventarempfänger)
-- `devices` – Geräte mit Status (verfügbar / vergeben / defekt)
+- `devices` – Geräte mit Status (verfügbar / vergeben / defekt); `phone_number` = Rufnummer bei Handys und SIM-Karten (Spalte „Handynummer“ in der Geräteliste, nur sichtbar, wenn die Auswahl Nummern enthält). Über der Liste Typ-Kacheln und Standort-Reiter wie bei der Arbeitskleidung
 - `assignments` – Zuweisungen Gerät ↔ Mitarbeiter mit Verlauf
 - `misc_items` / `misc_movements` – Sonstige Artikel (z. B. Gin, Gin im Geschenkkarton): je Bezeichnung + Art ein Artikel; Bestand wird aus den Buchungen (Zugang, Ausgabe, Ausbuchung) gerechnet. Eine Ausgabe hat Datum, „ausgegeben von“ (Mitarbeiter) und Empfänger (Mitarbeiter oder Freitext für Externe); keine Rückgabe
 
